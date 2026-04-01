@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+{% block title %}Dashboard — FinTrack Pro{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block topbar_extra %}
+<div class="month-nav">
+  <button class="month-btn" onclick="changeMonth(-1)">◀</button>
+  <div class="month-label">{{ kpis.month }}</div>
+  <button class="month-btn" onclick="changeMonth(1)">▶</button>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- KPI CARDS -->
+<div class="grid-4" style="margin-bottom:18px">
+  <div class="kpi-card">
+    <div class="kpi-accent" style="background:var(--green)"></div>
+    <div class="kpi-label">Saldo Consolidado</div>
+    <div class="kpi-value">{{ kpis.consolidated_balance | currency }}</div>
+    <span class="kpi-delta delta-up">↑ positivo</span>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-accent" style="background:var(--teal)"></div>
+    <div class="kpi-label">Receitas do Mês</div>
+    <div class="kpi-value">{{ kpis.total_income | currency }}</div>
+    <span class="kpi-delta delta-up">↑ receitas</span>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-accent" style="background:var(--red)"></div>
+    <div class="kpi-label">Despesas do Mês</div>
+    <div class="kpi-value">{{ kpis.total_expenses | currency }}</div>
+    <span class="kpi-delta delta-down">↑ despesas</span>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-accent" style="background:var(--accent)"></div>
+    <div class="kpi-label">Resultado Líquido</div>
+    <div class="kpi-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ kpis.net_result | currency }}</div>
+    <span class="kpi-delta {% if kpis.savings_rate >= 0 %}delta-up{% else %}delta-down{% endif %}">{{ kpis.savings_rate }}% poupança</span>
+  </div>
+</div>
+
+<!-- CHARTS ROW -->
+<div class="grid-main" style="margin-bottom:18px">
+  <!-- Evolution chart -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div><div class="card-title">Evolução Mensal</div><div class="card-sub">Receitas vs Despesas</div></div>
+    </div>
+    <div class="chart-box">
+      <canvas id="evolutionChart"></canvas>
+    </div>
+    <div class="legend">
+      <span><span class="legend-dot" style="background:rgba(34,197,94,.8)"></span>Receitas</span>
+      <span><span class="legend-dot" style="background:rgba(239,68,68,.8)"></span>Despesas</span>
+    </div>
+  </div>
+
+  <!-- Category donut -->
+  <div class="card">
+    <div><div class="card-title">Por Categoria</div><div class="card-sub">Distribuição de despesas</div></div>
+    <div style="margin:12px 0 10px">
+      <div class="donut-wrap">
+        <canvas id="donutChart"></canvas>
+        <div class="donut-center">
+          <div class="donut-total">{{ kpis.total_expenses | currency }}</div>
+          <div class="donut-sub">total</div>
+        </div>
+      </div>
+    </div>
+    {% for cat in categories[:5] %}
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:{{ cat.color }};flex-shrink:0"></div>
+      <span style="font-size:11px;color:var(--text2);flex:1">{{ cat.name }}</span>
+      <div style="flex:2;background:var(--bg3);border-radius:4px;height:4px;overflow:hidden">
+        <div style="height:100%;border-radius:4px;width:{{ cat.percentage }}%;background:{{ cat.color }}"></div>
+      </div>
+      <span style="font-size:11px;font-family:var(--mono);font-weight:500;min-width:60px;text-align:right">{{ cat.total | currency }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- BOTTOM ROW -->
+<div class="grid-bottom">
+  <!-- Recent transactions -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div><div class="card-title">Últimas Transações</div></div>
+      <a href="/transactions" class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Ver todas →</a>
+    </div>
+    {% for tx in recent_txs %}
+    <div class="tx-row">
+      <div class="tx-icon" style="background:{{ tx.category.color if tx.category else '#6c63ff' }}18">{{ tx.category.icon if tx.category else '📦' }}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tx-name">{{ tx.description }}</div>
+        <div class="tx-meta">
+          {{ tx.date | date_br }}
+          {% if tx.category %} · {{ tx.category.name }}{% endif %}
+          <span class="badge {% if tx.scope == 'shared' %}badge-shared{% else %}badge-personal{% endif %}" style="margin-left:4px">{% if tx.scope == 'shared' %}Familiar{% else %}Pessoal{% endif %}</span>
+        </div>
+      </div>
+      <span class="tx-amount {% if tx.type == 'income' %}amount-income{% else %}amount-expense{% endif %}">
+        {% if tx.type == 'income' %}+{% else %}-{% endif %}{{ tx.amount | currency }}
+      </span>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-icon">💸</div><div class="empty-text">Nenhuma transação este mês.</div></div>
+    {% endfor %}
+  </div>
+
+  <!-- Insights + Cards -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Insights Automáticos</div>
+      {% for ins in insights %}
+      <div class="insight-item insight-{{ ins.type }}">
+        <div class="insight-icon">{{ ins.icon }}</div>
+        <div>
+          <div class="insight-title">{{ ins.title }}</div>
+          <div class="insight-desc">{{ ins.description }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Tudo certo por aqui!</div>
+      {% endfor %}
+    </div>
+
+    <!-- INTELLIGENCE ALERTS -->
+    {% if alerts and alerts.items %}
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">🚨 Alertas Inteligentes</div>
+      {% for alert in alerts.items[:3] %}
+      <div class="insight-item insight-{% if alert.severity == 'critical' %}danger{% elif alert.severity == 'warning' %}warning{% else %}info{% endif %}">
+        <div class="insight-icon">
+          {% if alert.alert_type == 'category_spike' %}📈{% elif alert.alert_type == 'unusual_transaction' %}⚠️{% elif alert.alert_type == 'low_savings_rate' %}💰{% elif alert.alert_type == 'high_card_usage' %}💳{% else %}🔔{% endif %}
+        </div>
+        <div>
+          <div class="insight-title">{{ alert.title }}</div>
+          <div class="insight-desc">{{ alert.message }}</div>
+        </div>
+      </div>
+      {% endfor %}
+      <div style="text-align:center;margin-top:8px">
+        <a href="/intelligence" class="btn btn-ghost" style="font-size:12px">Ver todos →</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Faturas Próximas</div>
+      {% for card in cards %}
+      {% set used = card.credit_limit - card.available_limit %}
+      {% set pct = (used / card.credit_limit * 100)|round|int if card.credit_limit > 0 else 0 %}
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--text2)">{{ card.name }}</span>
+          <span class="mono font-medium">{{ used | currency }}</span>
+        </div>
+        <div class="progress-wrap progress-sm">
+          <div class="progress-fill" style="width:{{ pct }}%;background:{% if pct >= 80 %}var(--red){% elif pct >= 60 %}var(--amber){% else %}var(--green){% endif %}"></div>
+        </div>
+      </div>
+      {% else %}
+      <div style="font-size:12px;color:var(--text3);text-align:center;padding:10px">Nenhum cartão cadastrado.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const evoData = {{ evolution | tojson }};
+const catData = {{ categories | tojson }};
+
+// Evolution bar chart
+new Chart(document.getElementById('evolutionChart'), {
+  type: 'bar',
+  data: {
+    labels: evoData.length ? evoData.map(d => d.month) : ['Sem dados'],
+    datasets: [
+      {
+        label: 'income',
+        data: evoData.length ? evoData.map(d => d.income) : [0],
+        backgroundColor: 'rgba(34,197,94,.75)',
+        borderRadius: 4
+      },
+      {
+        label: 'expenses',
+        data: evoData.length ? evoData.map(d => d.expenses) : [0],
+        backgroundColor: 'rgba(239,68,68,.75)',
+        borderRadius: 4
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: { legend: { display: false }, tooltip: {
+      callbacks: { label: ctx => `R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
+    }},
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#555d72', font: { size: 11 } }, border: { display: false } },
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: {
+          color: '#555d72', font: { size: 10 },
+          callback: v => v >= 1000 ? `R$ ${(v/1000).toFixed(0)}k` : `R$ ${v}`
+        },
+        border: { display: false }
+      }
+    }
+  }
+});
+
+// Donut chart
+new Chart(document.getElementById('donutChart'), {
+  type: 'doughnut',
+  data: {
+    labels: catData.length ? catData.map(c => c.name) : ['Sem dados'],
+    datasets: [{
+      data: catData.length ? catData.map(c => c.total) : [1],
+      backgroundColor: catData.length ? catData.map(c => c.color) : ['#d9cfbf'],
+      borderWidth: 0,
+      hoverOffset: 4
+    }]
+  },
+  options: {
+    cutout: '68%', responsive: true, maintainAspectRatio: true, animation: false,
+    plugins: { legend: { display: false }, tooltip: {
+      callbacks: { label: ctx => ` R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
+    }}
+  }
+});
+</script>
+{% endblock %}

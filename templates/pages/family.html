@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% set active_page = "family" %}
+{% block title %}Família — FinTrack Pro{% endblock %}
+{% block page_title %}Ambiente Familiar{% endblock %}
+
+{% block content %}
+
+{% if not group %}
+<!-- NO GROUP — ONBOARDING -->
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center">
+  <div style="font-size:56px;margin-bottom:16px">👨‍👩‍👧</div>
+  <h2 style="font-size:18px;font-weight:600;margin-bottom:8px">Crie ou entre em um grupo familiar</h2>
+  <p style="font-size:13px;color:var(--text2);max-width:420px;margin-bottom:32px">
+    Compartilhe contas, despesas e metas com seu parceiro ou família, mantendo sua visão individual separada.
+  </p>
+  <div style="display:flex;gap:12px">
+    <button class="btn btn-primary" onclick="openModal('create-modal')">+ Criar grupo</button>
+    <button class="btn btn-ghost" onclick="openModal('join-modal')">Entrar com código</button>
+  </div>
+</div>
+
+<!-- CREATE GROUP MODAL -->
+<div class="modal-overlay" id="create-modal" onclick="if(event.target===this)closeModal('create-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Novo grupo familiar</div><button class="modal-close" onclick="closeModal('create-modal')">✕</button></div>
+    <div class="form-group"><label class="form-label">Nome do grupo</label><input class="form-input" id="fg-name" placeholder="Ex: Família Silva"/></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('create-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="createGroup()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- JOIN MODAL -->
+<div class="modal-overlay" id="join-modal" onclick="if(event.target===this)closeModal('join-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Entrar com código</div><button class="modal-close" onclick="closeModal('join-modal')">✕</button></div>
+    <div class="form-group"><label class="form-label">Código de convite</label><input class="form-input mono" id="fg-code" placeholder="XXXXXXXX" style="letter-spacing:.15em;text-transform:uppercase"/></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('join-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="joinGroup()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<!-- GROUP DASHBOARD -->
+<div class="card" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="width:48px;height:48px;border-radius:14px;background:rgba(108,99,255,.12);display:flex;align-items:center;justify-content:center;font-size:24px">👨‍👩‍👧</div>
+    <div>
+      <div style="font-size:15px;font-weight:600">{{ group.name }}</div>
+      <div style="font-size:11px;color:var(--text3)">{{ group.members | length if group.members else 0 }} membro(s)</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:11px;color:var(--text3)">Código de convite:</span>
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:6px 12px">
+      <span class="mono" style="font-size:13px;font-weight:500;letter-spacing:.12em">{{ group.invite_code }}</span>
+      <button onclick="copyCode('{{ group.invite_code }}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px" title="Copiar">📋</button>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:18px">
+  <!-- Members -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">👥 Membros</div>
+    {% set member_colors = ['#a855f7','#14b8a6','#3b82f6','#f59e0b','#ec4899'] %}
+    {% for member in group.members or [] %}
+    {% set profile = member.profile or {} %}
+    {% set initials = (profile.full_name or 'U')[:2] | upper %}
+    {% set color = member_colors[loop.index0 % member_colors | length] %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:10px;margin-bottom:8px">
+      <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;background:{{ color }}20;color:{{ color }}">{{ initials }}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">{{ profile.full_name or 'Membro' }}</div>
+        <div style="font-size:11px;color:var(--text3)">{{ 'Dono do grupo' if member.role == 'owner' else 'Membro' }}</div>
+      </div>
+      <span class="badge {% if member.role == 'owner' %}badge-personal{% else %}badge-shared{% endif %}">
+        {{ 'Dono' if member.role == 'owner' else 'Membro' }}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Consolidated summary -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">📊 Resumo Consolidado</div>
+    {% if summary %}
+    {% set rows = [
+      ('Receita familiar total', summary.total_income, 'text-success'),
+      ('Despesas compartilhadas', summary.shared_expenses, 'text-danger')
+    ] %}
+    {% for name, amount in summary.personal_expenses.items() %}
+    {% set _ = rows.append((name + ' (pessoal)', amount, 'text-danger')) %}
+    {% endfor %}
+    {% set _ = rows.append(('Resultado familiar', summary.net_family, 'text-success' if summary.net_family >= 0 else 'text-danger')) %}
+    {% for row in rows %}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;{% if loop.last %}border:none;font-weight:600{% endif %}">
+      <span style="color:{{ 'var(--text)' if loop.last else 'var(--text2)' }}">{{ row[0] }}</span>
+      <span class="mono {{ row[2] }}">{{ row[1] | currency }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state" style="padding:28px 12px">
+      <div class="empty-icon">📊</div>
+      <div class="empty-text">Sem dados para exibir o resumo.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title" style="margin-bottom:14px">Transações Compartilhadas do Mês</div>
+  <div class="empty-state"><div class="empty-icon">🔗</div><div class="empty-text">Transações marcadas como "Familiar" aparecerão aqui.</div></div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function copyCode(code) {
+  navigator.clipboard.writeText(code).then(() => showToast('Código copiado!', 'success'));
+}
+async function createGroup() {
+  const name = document.getElementById('fg-name').value.trim();
+  if (!name) return;
+  const r = await fetch('/api/family', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name}) });
+  if (r.ok) { showToast('Grupo criado!','success'); setTimeout(()=>location.reload(),600); }
+  else { const e = await r.json(); showToast(e.detail||'Erro','error'); }
+}
+async function joinGroup() {
+  const code = document.getElementById('fg-code').value.trim().toUpperCase();
+  if (!code) return;
+  const r = await fetch('/api/family', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({invite_code: code}) });
+  if (r.ok) { showToast('Entrou no grupo!','success'); setTimeout(()=>location.reload(),600); }
+  else { const e = await r.json(); showToast(e.detail||'Código inválido','error'); }
+}
+</script>
+{% endblock %}

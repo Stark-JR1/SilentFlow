@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Redefinir senha — FinTrack Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f3ef;--card:#fffdf9;--border:#e8e0d4;--border2:#d9cfbf;--text:#2f2b27;--text2:#6d655c;--accent:#e06c2f;--accent2:#c95a20;--red:#d46a64;--green:#4f8f67;--shadow:0 18px 40px rgba(72,56,36,.10)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:radial-gradient(circle at top,#faf7f2 0%,var(--bg) 60%);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:32px;width:100%;max-width:390px;box-shadow:var(--shadow)}
+label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+input{width:100%;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:11px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;transition:border-color .15s, box-shadow .15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)}
+.btn{display:flex;justify-content:center;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;background:var(--accent);color:#fff;margin-top:4px;box-shadow:0 12px 20px rgba(224,108,47,.18)}
+.btn:hover{background:var(--accent2)}a{color:var(--accent2);text-decoration:none;font-size:13px;font-weight:600}
+</style></head>
+<body>
+<div class="card">
+  <div style="font-size:30px;text-align:center;margin-bottom:16px">🔑</div>
+  <h1 style="font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em">Redefinir senha</h1>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Informe seu email para receber o link.</p>
+  {% if success %}
+  <div style="background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--green);margin-bottom:14px">Email enviado com sucesso.</div>
+  {% endif %}
+  {% if error %}
+  <div style="background:rgba(212,106,100,.10);border:1px solid rgba(212,106,100,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--red);margin-bottom:14px">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/auth/reset-password">
+    <label>Email</label>
+    <input type="email" name="email" placeholder="seu@email.com" required>
+    <button class="btn" type="submit">Enviar link</button>
+  </form>
+  <div style="margin-top:18px;text-align:center"><a href="/auth/login">← Voltar para o login</a></div>
+</div>
+</body>
+</html>

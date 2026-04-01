@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% set active_page = "goals" %}
+{% block title %}Metas — FinTrack Pro{% endblock %}
+{% block page_title %}Metas Financeiras{% endblock %}
+{% block content %}
+{% set active_goals = goals | rejectattr('is_completed') | list %}
+{% set total_target = goals | sum(attribute='target_amount') %}
+{% set total_current = goals | sum(attribute='current_amount') %}
+
+<div class="grid-3" style="margin-bottom:18px">
+  <div class="kpi-card"><div class="kpi-accent" style="background:var(--green)"></div><div class="kpi-label">Metas ativas</div><div class="kpi-value">{{ active_goals | length }}</div></div>
+  <div class="kpi-card"><div class="kpi-accent" style="background:var(--accent)"></div><div class="kpi-label">Total planejado</div><div class="kpi-value">{{ total_target | currency }}</div></div>
+  <div class="kpi-card"><div class="kpi-accent" style="background:var(--teal)"></div><div class="kpi-label">Total acumulado</div><div class="kpi-value" style="color:var(--teal)">{{ total_current | currency }}</div></div>
+</div>
+
+<div class="section-header">
+  <div class="section-title">Suas metas</div>
+  <button class="btn btn-primary" onclick="openModal('goal-modal')">+ Nova meta</button>
+</div>
+
+<div class="grid-3">
+{% for goal in goals %}
+<div class="goal-card">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:24px">{{ goal.icon }}</div>
+    <div style="text-align:right">
+      <div class="mono font-bold" style="font-size:18px;color:{{ goal.color }}">{{ goal.percentage }}%</div>
+      {% if goal.scope == 'shared' %}<span class="badge badge-shared">Familiar</span>{% endif %}
+    </div>
+  </div>
+  <div style="font-size:13px;font-weight:500;margin-bottom:4px">{{ goal.name }}</div>
+  <div class="mono" style="font-size:11px;color:var(--text3);margin-bottom:10px">{{ goal.current_amount | currency }} / {{ goal.target_amount | currency }}</div>
+  <div class="progress-wrap"><div class="progress-fill" style="width:{{ goal.percentage }}%;background:{{ goal.color }}"></div></div>
+  {% if goal.target_date %}<div style="font-size:10px;color:var(--text3);margin-top:6px">Prazo: {{ goal.target_date | date_br }}</div>{% endif %}
+  {% if goal.is_completed %}<div style="font-size:11px;color:var(--green);font-weight:500;margin-top:6px">✓ Concluída!</div>{% endif %}
+</div>
+{% else %}
+<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎯</div><div class="empty-text">Nenhuma meta cadastrada.</div></div>
+{% endfor %}
+<button class="goal-card" onclick="openModal('goal-modal')" style="border:1px dashed var(--border2);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;cursor:pointer;color:var(--text3)">
+  <span style="font-size:28px">+</span><span style="font-size:12px">Nova meta</span>
+</button>
+</div>
+
+<div class="modal-overlay" id="goal-modal" onclick="if(event.target===this)closeModal('goal-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Nova Meta</div><button class="modal-close" onclick="closeModal('goal-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="g-name" placeholder="Ex: Viagem Europa" /></div>
+      <div class="form-group"><label class="form-label">Valor alvo</label><input class="form-input mono" id="g-target" placeholder="0,00" /></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Prazo</label><input type="date" class="form-input" id="g-date" /></div>
+      <div class="form-group"><label class="form-label">Visibilidade</label>
+        <select class="form-select" id="g-scope"><option value="personal">Pessoal</option><option value="shared">Familiar</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Ícone</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="icon-picker">
+        {% for icon in ['🎯','✈','🏠','🚗','📚','💍','🏥','🌍','🎸','💻'] %}
+        <button type="button" onclick="selectIcon(this,'{{ icon }}')" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">{{ icon }}</button>
+        {% endfor %}
+      </div>
+      <input type="hidden" id="g-icon" value="🎯">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('goal-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="saveGoal()">Criar meta</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function selectIcon(btn, icon) {
+  document.querySelectorAll('#icon-picker button').forEach(b => b.style.borderColor = 'var(--border2)');
+  btn.style.borderColor = 'var(--accent)';
+  document.getElementById('g-icon').value = icon;
+}
+async function saveGoal() {
+  const payload = {
+    name: document.getElementById('g-name').value,
+    icon: document.getElementById('g-icon').value,
+    target_amount: parseFloat(document.getElementById('g-target').value.replace(',','.')) || 0,
+    target_date: document.getElementById('g-date').value || null,
+    scope: document.getElementById('g-scope').value,
+  };
+  const r = await fetch('/api/goals', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  if (r.ok) { showToast('Meta criada!', 'success'); setTimeout(()=>location.reload(), 600); }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% set active_page = "accounts" %}
+{% block title %}Contas — FinTrack Pro{% endblock %}
+{% block page_title %}Contas{% endblock %}
+{% block content %}
+<div class="card" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+  <div>
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Saldo total consolidado</div>
+    <div class="mono" style="font-size:28px;font-weight:700;color:{% if total >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ total | currency }}</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('acc-modal')">+ Nova conta</button>
+</div>
+
+<div class="grid-2">
+{% for acc in accounts %}
+<div class="account-card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;background:{{ acc.color or '#6c63ff' }}18">{{ acc.icon or '🏦' }}</div>
+      <div>
+        <div style="font-size:13px;font-weight:500">{{ acc.name }}</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">{{ acc_labels.get(acc.type, acc.type) }}</div>
+      </div>
+    </div>
+    <span class="badge {% if acc.is_shared %}badge-shared{% else %}badge-personal{% endif %}">{% if acc.is_shared %}Familiar{% else %}Pessoal{% endif %}</span>
+  </div>
+  <div class="mono" style="font-size:22px;font-weight:700;color:{% if acc.current_balance >= 0 %}var(--text){% else %}var(--red){% endif %}">{{ acc.current_balance | currency }}</div>
+  <div style="font-size:11px;color:var(--text3);margin-top:2px">Saldo inicial: {{ acc.initial_balance | currency }}</div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <a href="/transactions?account_id={{ acc.id }}" class="btn btn-ghost" style="flex:1;font-size:11px;justify-content:center">Extrato</a>
+    <button class="btn btn-ghost" type="button" style="flex:1;font-size:11px" onclick="openTransferForAccount('{{ acc.id }}')">Transferir</button>
+  </div>
+</div>
+{% else %}
+<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🏦</div><div class="empty-text">Nenhuma conta cadastrada.</div><button class="btn btn-primary" onclick="openModal('acc-modal')" style="margin-top:12px">+ Adicionar conta</button></div>
+{% endfor %}
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" id="acc-modal" onclick="if(event.target===this)closeModal('acc-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Nova Conta</div><button class="modal-close" onclick="closeModal('acc-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="acc-name" placeholder="Ex: Nubank" /></div>
+      <div class="form-group"><label class="form-label">Tipo</label>
+        <select class="form-select" id="acc-type">
+          {% for k,v in acc_labels.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Banco</label><input class="form-input" id="acc-bank" placeholder="Ex: Itaú" /></div>
+      <div class="form-group"><label class="form-label">Saldo inicial</label><input class="form-input mono" id="acc-balance" placeholder="0,00" /></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:14px">
+      <input type="checkbox" id="acc-shared" style="width:16px;height:16px;accent-color:var(--accent)">
+      <label for="acc-shared" style="font-size:13px;color:var(--text2);cursor:pointer">Conta compartilhada</label>
+    </div>
+    <div id="acc-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('acc-modal')">Cancelar</button>
+      <button class="btn btn-primary" id="acc-save-btn" style="flex:2;justify-content:center" onclick="saveAccount()">Criar conta</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function openTransferForAccount(accountId) {
+  const url = new URL('/transactions', window.location.origin);
+  url.searchParams.set('account_id', accountId);
+  url.searchParams.set('type', 'transfer');
+  url.searchParams.set('open_transfer', '1');
+  window.location.href = url.toString();
+}
+
+function parseMoneyInput(value) {
+  if (!value || !value.trim()) return 0;
+  const normalized = value
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+async function saveAccount() {
+  const errorEl = document.getElementById('acc-error');
+  const saveBtn = document.getElementById('acc-save-btn');
+  const name = document.getElementById('acc-name').value.trim();
+  const initialBalance = parseMoneyInput(document.getElementById('acc-balance').value);
+
+  errorEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  if (!name) {
+    errorEl.textContent = 'Informe o nome da conta.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  if (Number.isNaN(initialBalance)) {
+    errorEl.textContent = 'Informe um saldo inicial válido.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const payload = {
+    name,
+    type: document.getElementById('acc-type').value,
+    bank_name: document.getElementById('acc-bank').value.trim() || null,
+    initial_balance: initialBalance,
+    is_shared: document.getElementById('acc-shared').checked,
+  };
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando...';
+
+  try {
+    const r = await fetch('/api/accounts', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    if (r.redirected && r.url.includes('/auth/login')) {
+      showToast('Sua sessão expirou. Faça login novamente.', 'error');
+      setTimeout(() => { window.location.href = '/auth/login'; }, 400);
+      return;
+    }
+
+    if (r.ok) {
+      closeModal('acc-modal');
+      showToast('Conta criada!', 'success');
+      setTimeout(() => location.reload(), 600);
+      return;
+    }
+
+    let message = 'Erro ao criar conta.';
+    const contentType = r.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const errorPayload = await r.json();
+      message = errorPayload.detail || message;
+    } else {
+      const text = await r.text();
+      if (text) message = text;
+    }
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+    showToast(message, 'error');
+  } catch (error) {
+    errorEl.textContent = 'Erro de conexão ao criar conta.';
+    errorEl.style.display = 'block';
+    showToast('Erro de conexão ao criar conta.', 'error');
+    console.error(error);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Criar conta';
+  }
+}
+</script>
+{% endblock %}

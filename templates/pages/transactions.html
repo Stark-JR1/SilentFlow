@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% set active_page = "transactions" %}
+{% block title %}Transações — FinTrack Pro{% endblock %}
+{% block page_title %}Transações{% endblock %}
+{% block topbar_extra %}
+<div class="month-nav">
+  <button class="month-btn" onclick="changeMonth(-1)">◀</button>
+  <div class="month-label" id="month-display">{{ month.strftime('%B %Y') }}</div>
+  <button class="month-btn" onclick="changeMonth(1)">▶</button>
+</div>
+{% endblock %}
+{% block content %}
+
+<!-- FILTERS -->
+<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+  <form method="get" style="display:contents">
+    <input type="hidden" name="month" value="{{ month.strftime('%Y-%m') }}">
+    <div style="position:relative;flex:1;min-width:180px">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px">🔍</span>
+      <input class="form-input" name="search" value="{{ search_f }}" placeholder="Buscar transação..." style="padding-left:32px" />
+    </div>
+    <select class="form-select" name="type" style="width:auto" onchange="this.form.submit()">
+      <option value="">Todos os tipos</option>
+      <option value="income"   {% if type_f=='income'   %}selected{% endif %}>Receitas</option>
+      <option value="expense"  {% if type_f=='expense'  %}selected{% endif %}>Despesas</option>
+      <option value="transfer" {% if type_f=='transfer' %}selected{% endif %}>Transferências</option>
+    </select>
+    <select class="form-select" name="scope" style="width:auto" onchange="this.form.submit()">
+      <option value="">Todos os escopos</option>
+      <option value="personal" {% if scope_f=='personal' %}selected{% endif %}>Pessoal</option>
+      <option value="shared"   {% if scope_f=='shared'   %}selected{% endif %}>Familiar</option>
+    </select>
+    <select class="form-select" name="account_id" style="width:auto" onchange="this.form.submit()">
+      <option value="">Todas as contas</option>
+      {% for account in accounts %}
+      <option value="{{ account.id }}" {% if account_id_f == account.id %}selected{% endif %}>{{ account.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-ghost">Filtrar</button>
+  </form>
+</div>
+
+<!-- SUMMARY STRIP -->
+{% set txs = result.data %}
+{% set total_inc = txs | selectattr('type','equalto','income') | sum(attribute='amount') %}
+{% set total_exp = txs | selectattr('type','equalto','expense') | sum(attribute='amount') %}
+<div style="display:flex;align-items:center;gap:20px;padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:14px;font-size:12px">
+  <span style="color:var(--text3)">{{ result.count }} transações</span>
+  <span class="mono text-success">+ {{ total_inc | currency }}</span>
+  <span class="mono text-danger">- {{ total_exp | currency }}</span>
+  <span style="margin-left:auto;color:var(--text3)">Pág. {{ result.page }} / {{ result.total_pages }}</span>
+</div>
+
+<!-- TABLE -->
+<div class="card" style="padding:0;overflow:hidden">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Descrição</th>
+        <th>Categoria</th>
+        <th>Data</th>
+        <th>Escopo</th>
+        <th style="text-align:right">Valor</th>
+        <th style="width:40px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tx in txs %}
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="tx-icon" style="background:{{ tx.category.color if tx.category else '#6c63ff' }}18;width:32px;height:32px;font-size:14px;border-radius:8px;flex-shrink:0">{{ tx.category.icon if tx.category else '📦' }}</div>
+            <div>
+              <div style="font-size:13px;font-weight:500">{{ tx.description }}</div>
+              {% if tx.is_installment %}<div style="font-size:10px;color:var(--amber)">Parcela {{ tx.installment_number }}/{{ tx.total_installments }}</div>{% endif %}
+            </div>
+          </div>
+        </td>
+        <td style="color:var(--text2)">{{ tx.category.name if tx.category else '—' }}</td>
+        <td style="color:var(--text2)">{{ tx.date | date_br }}</td>
+        <td><span class="badge {% if tx.scope == 'shared' %}badge-shared{% else %}badge-personal{% endif %}">{% if tx.scope == 'shared' %}Familiar{% else %}Pessoal{% endif %}</span></td>
+        <td style="text-align:right">
+          <span class="mono font-medium {% if tx.type == 'income' %}text-success{% endif %}">
+            {% if tx.type == 'income' %}+{% elif tx.type == 'expense' %}-{% endif %}{{ tx.amount | currency }}
+          </span>
+        </td>
+        <td>
+          <button onclick="deleteTx('{{ tx.id }}')" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px" title="Excluir">🗑</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Nenhuma transação encontrada.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- PAGINATION -->
+{% if result.total_pages > 1 %}
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px">
+  {% if result.page > 1 %}
+  <a href="?page={{ result.page - 1 }}&type={{ type_f }}&scope={{ scope_f }}&search={{ search_f }}&account_id={{ account_id_f }}&month={{ month.strftime('%Y-%m') }}" class="btn btn-ghost" style="padding:5px 12px;font-size:11px">← Anterior</a>
+  {% endif %}
+  <span style="font-size:12px;color:var(--text2)">{{ result.page }} / {{ result.total_pages }}</span>
+  {% if result.page < result.total_pages %}
+  <a href="?page={{ result.page + 1 }}&type={{ type_f }}&scope={{ scope_f }}&search={{ search_f }}&account_id={{ account_id_f }}&month={{ month.strftime('%Y-%m') }}" class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Próximo →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+async function deleteTx(id) {
+  if (!confirm('Excluir esta transação?')) return;
+  const r = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+  if (r.ok || r.status === 204) {
+    showToast('Transação excluída.', 'success');
+    setTimeout(() => location.reload(), 600);
+  }
+}
+</script>
+{% endblock %}

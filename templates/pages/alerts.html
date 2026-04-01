@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% set active_page = "alerts" %}
+{% block title %}Alertas — FinTrack Pro{% endblock %}
+{% block page_title %}Central de Alertas{% endblock %}
+
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+  <span style="font-size:13px;color:var(--text3)">{{ unread }} não lido(s)</span>
+  {% if unread > 0 %}
+  <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px" onclick="markAllRead()">✓ Marcar todos como lidos</button>
+  {% endif %}
+</div>
+
+{% set icon_map = {
+  'bill_due':          '📅',
+  'card_limit':        '💳',
+  'goal_reached':      '🎯',
+  'overspend':         '📈',
+  'low_balance':       '⚠',
+  'recurring_created': '↻',
+  'generic':           '🔔',
+} %}
+
+{% set color_map = {
+  'card_limit':   'var(--red-bg)',
+  'bill_due':     'var(--amber-bg)',
+  'goal_reached': 'var(--green-bg)',
+  'overspend':    'var(--amber-bg)',
+  'low_balance':  'var(--red-bg)',
+  'recurring_created': 'var(--blue-bg)',
+  'generic':      'rgba(108,99,255,.1)',
+} %}
+
+<div id="notifications-list">
+  {% for notif in notifications %}
+  <div class="alert-item {% if not notif.is_read %}unread{% endif %}" id="notif-{{ notif.id }}"
+       onclick="markRead('{{ notif.id }}', this)">
+    <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:{{ color_map.get(notif.type, 'rgba(108,99,255,.1)') }}">
+      {{ icon_map.get(notif.type, '🔔') }}
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:{% if not notif.is_read %}500{% else %}400{% endif %};color:{% if not notif.is_read %}var(--text){% else %}var(--text2){% endif %}">{{ notif.title }}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">{{ notif.body }}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+      <span style="font-size:10px;color:var(--text3)">{{ notif.created_at[:10] if notif.created_at else '' }}</span>
+      {% if not notif.is_read %}<div class="unread-dot"></div>{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🔔</div>
+    <div class="empty-text">Nenhum alerta no momento. Tudo em dia!</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+async function markRead(id, el) {
+  await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+  el.classList.remove('unread');
+  const dot = el.querySelector('.unread-dot');
+  if (dot) dot.remove();
+  el.style.borderLeftColor = 'transparent';
+}
+async function markAllRead() {
+  const unreads = document.querySelectorAll('.alert-item.unread');
+  for (const el of unreads) {
+    const id = el.id.replace('notif-', '');
+    await markRead(id, el);
+  }
+  showToast('Todos marcados como lidos.', 'success');
+  document.querySelector('[onclick="markAllRead()"]')?.remove();
+}
+</script>
+{% endblock %}

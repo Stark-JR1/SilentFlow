@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% set active_page = "imports" %}
+{% block title %}Importar Extratos — FinTrack Pro{% endblock %}
+{% block page_title %}Importar Extratos{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="align-items:start">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:8px">Upload de extratos</div>
+    <div class="card-sub" style="margin-bottom:16px">
+      Envie arquivos de conta ou cartão em XML, OFX, CSV ou PDF. A importação faz uma leitura inicial e mostra as movimentações reconhecidas antes de qualquer ação futura.
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Banco</label>
+      <select class="form-select" id="import-bank">
+        <option value="">Detectar automaticamente</option>
+        <option value="bradesco">Bradesco</option>
+        <option value="c6 bank">C6 Bank</option>
+        <option value="sicoob">Sicoob</option>
+        <option value="inter">Inter</option>
+        <option value="nubank">Nubank</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Arquivo</label>
+      <input class="form-input" id="import-file" type="file" accept=".xml,.ofx,.csv,.pdf" />
+    </div>
+
+    <div id="import-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px"></div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" id="import-preview-btn" onclick="previewImport()">Ler extrato</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px">Cobertura inicial</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Bancos previstos:</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      {% for bank in supported_banks %}
+      <span class="badge badge-personal">{{ bank }}</span>
+      {% endfor %}
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Formatos suportados:</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      {% for file_format in supported_formats %}
+      <span class="badge badge-shared">{{ file_format }}</span>
+      {% endfor %}
+    </div>
+    <div class="empty-state" style="padding:20px 10px">
+      <div class="empty-icon">📄</div>
+      <div class="empty-text">A leitura atual é focada em preview de movimentações de conta e cartão, pronta para evoluir para importação definitiva.</div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div>
+      <div class="card-title">Pré-visualização</div>
+      <div class="card-sub" id="import-summary">Nenhum arquivo processado ainda.</div>
+    </div>
+  </div>
+
+  <div id="import-warnings" style="display:none;margin-bottom:12px"></div>
+
+  <div class="card" id="import-preview-empty" style="background:transparent;border:1px dashed var(--border2);box-shadow:none;text-align:center">
+    <div class="empty-icon">⇪</div>
+    <div class="empty-text">Selecione um extrato para ver as movimentações reconhecidas.</div>
+  </div>
+
+  <div id="import-preview-table" style="display:none;overflow:auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>Origem</th>
+          <th>Tipo</th>
+          <th style="text-align:right">Valor</th>
+        </tr>
+      </thead>
+      <tbody id="import-preview-body"></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function renderWarnings(warnings) {
+  const box = document.getElementById('import-warnings');
+  if (!warnings || !warnings.length) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = warnings.map(w => `<div class="insight-item insight-warn"><div class="insight-icon">⚠</div><div class="insight-desc">${w}</div></div>`).join('');
+}
+
+function renderPreview(result) {
+  const summary = document.getElementById('import-summary');
+  const empty = document.getElementById('import-preview-empty');
+  const table = document.getElementById('import-preview-table');
+  const body = document.getElementById('import-preview-body');
+
+  summary.textContent = `${result.count} movimentações reconhecidas · ${result.bank} · ${result.statement_type} · ${result.file_format.toUpperCase()}`;
+  renderWarnings(result.warnings || []);
+
+  if (!result.items || !result.items.length) {
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    body.innerHTML = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+  table.style.display = 'block';
+  body.innerHTML = result.items.map(item => `
+    <tr>
+      <td>${item.date}</td>
+      <td>${item.description}</td>
+      <td>${item.source.toUpperCase()}</td>
+      <td><span class="badge ${item.kind === 'credit' ? 'badge-income' : 'badge-expense'}">${item.kind === 'credit' ? 'Crédito' : 'Débito'}</span></td>
+      <td style="text-align:right" class="mono ${item.amount >= 0 ? 'text-success' : 'text-danger'}">${item.amount.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
+    </tr>
+  `).join('');
+}
+
+async function previewImport() {
+  const fileInput = document.getElementById('import-file');
+  const button = document.getElementById('import-preview-btn');
+  const error = document.getElementById('import-error');
+  const file = fileInput.files[0];
+
+  error.style.display = 'none';
+  error.textContent = '';
+
+  if (!file) {
+    error.textContent = 'Selecione um arquivo para importar.';
+    error.style.display = 'block';
+    return;
+  }
+
+  const data = new FormData();
+  data.append('file', file);
+  if (document.getElementById('import-bank').value) {
+    data.append('bank_hint', document.getElementById('import-bank').value);
+  }
+
+  button.disabled = true;
+  button.textContent = 'Lendo...';
+
+  try {
+    const response = await fetch('/api/imports/preview', {
+      method: 'POST',
+      body: data
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || 'Erro ao ler o extrato.');
+    }
+    renderPreview(payload);
+    showToast('Extrato analisado com sucesso!', 'success');
+  } catch (err) {
+    error.textContent = err.message || 'Erro ao processar o arquivo.';
+    error.style.display = 'block';
+    showToast(error.textContent, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Ler extrato';
+  }
+}
+</script>
+{% endblock %}

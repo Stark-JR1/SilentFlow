@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+{% set active_page = "intelligence" %}
+{% block title %}Inteligência — FinTrack Pro{% endblock %}
+{% block page_title %}Inteligência{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:16px">
+  <div class="card-title">Configurações & Aprendizado</div>
+  <div class="card-sub">Controle como o sistema aprende com seus lançamentos e quando ele deve sugerir ou pré-preencher campos.</div>
+</div>
+
+<!-- USER PROFILE SECTION -->
+{% if profile %}
+<div class="card" style="margin-bottom:16px">
+  <div class="card-title" style="margin-bottom:8px">📊 Seu Perfil Financeiro</div>
+  <div class="card-sub" style="margin-bottom:14px">Resumo consolidado do seu comportamento financeiro baseado no histórico de transações.</div>
+  
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:16px">
+    <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px">
+      <div style="font-size:18px;font-weight:600;color:var(--green)">{{ profile.avg_monthly_income | currency }}</div>
+      <div style="font-size:12px;color:var(--text3)">Renda Média</div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px">
+      <div style="font-size:18px;font-weight:600;color:var(--red)">{{ profile.avg_monthly_expense | currency }}</div>
+      <div style="font-size:12px;color:var(--text3)">Gasto Médio</div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px">
+      <div style="font-size:18px;font-weight:600;color:{% if profile.avg_monthly_savings >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ profile.avg_monthly_savings | currency }}</div>
+      <div style="font-size:12px;color:var(--text3)">Economia Média</div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px">
+      <div style="font-size:18px;font-weight:600;color:var(--accent)">{{ profile.active_months_count }}</div>
+      <div style="font-size:12px;color:var(--text3)">Meses Ativos</div>
+    </div>
+  </div>
+  
+  {% if profile.top_category_id %}
+  <div style="padding:12px;background:var(--bg2);border-radius:8px;margin-bottom:16px">
+    <div style="font-size:14px;color:var(--text2);margin-bottom:4px">Categoria mais usada</div>
+    <div style="font-size:16px;font-weight:500">{{ profile.top_category_id }} ({{ '%.1f'|format(profile.top_category_share * 100) }}% dos gastos)</div>
+  </div>
+  {% endif %}
+  
+  <div style="font-size:12px;color:var(--text3);text-align:center">
+    Atualizado automaticamente com novas transações
+  </div>
+</div>
+{% endif %}
+
+<!-- ALERTS SECTION -->
+{% if alerts.items %}
+<div class="card" style="margin-bottom:16px">
+  <div class="card-title" style="margin-bottom:8px">🚨 Alertas Inteligentes</div>
+  <div class="card-sub" style="margin-bottom:14px">Notificações automáticas baseadas no seu perfil financeiro e padrões de uso.</div>
+  
+  <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+    <span class="badge badge-info">{{ alerts.total }} total</span>
+    <span class="badge badge-warning">{{ alerts.unread }} não lidos</span>
+    {% if alerts.critical > 0 %}
+    <span class="badge badge-danger">{{ alerts.critical }} críticos</span>
+    {% endif %}
+  </div>
+  
+  <div class="space-y">
+    {% for alert in alerts.items[:5] %}
+    <div class="insight-item insight-{% if alert.severity == 'critical' %}danger{% elif alert.severity == 'warning' %}warning{% else %}info{% endif %} {% if not alert.is_read %}alert-unread{% endif %}">
+      <div class="insight-icon">
+        {% if alert.alert_type == 'category_spike' %}📈{% elif alert.alert_type == 'unusual_transaction' %}⚠️{% elif alert.alert_type == 'low_savings_rate' %}💰{% elif alert.alert_type == 'high_card_usage' %}💳{% else %}🔔{% endif %}
+      </div>
+      <div style="flex:1">
+        <div class="insight-title">{{ alert.title }}</div>
+        <div class="insight-desc">{{ alert.message }}</div>
+        {% if alert.reference_date %}
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">{{ alert.reference_date | date_br }}</div>
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:4px;flex-direction:column">
+        {% if not alert.is_read %}
+        <button class="btn btn-sm btn-primary" onclick="markAlertRead('{{ alert.id }}')" title="Marcar como lido">✓</button>
+        {% endif %}
+        <button class="btn btn-sm btn-ghost" onclick="dismissAlert('{{ alert.id }}')" title="Dispensar">✕</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  
+  {% if alerts.items|length > 5 %}
+  <div style="text-align:center;margin-top:12px">
+    <a href="/alerts" class="btn btn-ghost" style="font-size:12px">Ver todos os alertas →</a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="grid-2" style="align-items:start">
+  <div class="space-y">
+    <div class="card">
+      <div class="section-header">
+        <div>
+          <div class="card-title">Comportamento</div>
+          <div class="card-sub">Ajuste o nível de autonomia da inteligência.</div>
+        </div>
+      </div>
+
+      {% for key, label, desc in [
+        ('enable_suggestions', 'Ativar sugestões automáticas', 'Mostra sugestões no modal de lançamento.'),
+        ('enable_auto_fill', 'Ativar pré-preenchimento', 'Só preenche quando a confiança estiver alta e isso estiver ligado.'),
+        ('enable_recurrence_detection', 'Ativar detecção de recorrência', 'Deixa o módulo pronto para a próxima camada de recorrência.'),
+        ('learn_from_manual_edits', 'Aprender com edições manuais', 'Reforça o histórico sempre que você confirma ou corrige um lançamento.'),
+        ('show_explanations', 'Mostrar explicações', 'Explica por que uma sugestão apareceu.')
+      ] %}
+      <label style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)">
+        <input type="checkbox" class="intel-toggle" data-key="{{ key }}" {% if settings[key] %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--accent);margin-top:2px">
+        <div style="flex:1">
+          <div class="font-medium">{{ label }}</div>
+          <div class="text-muted" style="font-size:12px">{{ desc }}</div>
+        </div>
+      </label>
+      {% endfor %}
+      <div class="text-muted" style="font-size:12px;padding-top:12px">
+        Aprendizado por importações permanece planejado e será habilitado quando o fluxo de importação enviar feedback ao backend.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Sensibilidade</div>
+      <div class="form-group">
+        <label class="form-label">Confiança mínima para sugerir</label>
+        <input class="form-input intel-range" data-key="min_confidence_to_suggest" type="number" min="0" max="1" step="0.05" value="{{ settings.min_confidence_to_suggest }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confiança mínima para pré-preencher</label>
+        <input class="form-input intel-range" data-key="min_confidence_to_autofill" type="number" min="0" max="1" step="0.05" value="{{ settings.min_confidence_to_autofill }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Similaridade mínima entre descrições</label>
+        <input class="form-input intel-range" data-key="description_similarity_threshold" type="number" min="0" max="1" step="0.05" value="{{ settings.description_similarity_threshold }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Repetições mínimas para padrão</label>
+        <input class="form-input intel-range" data-key="min_repetitions_for_pattern" type="number" min="1" max="50" step="1" value="{{ settings.min_repetitions_for_pattern }}">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="saveIntelligenceSettings()">Salvar configurações</button>
+      <button class="btn btn-ghost" onclick="location.reload()">Restaurar tela</button>
+    </div>
+  </div>
+
+  <div class="space-y">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:8px">Regras aprendidas</div>
+      <div class="card-sub" style="margin-bottom:14px">Essas regras são geradas a partir das confirmações e correções feitas por você.</div>
+
+      {% if rules %}
+      <div style="overflow:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Tipo</th>
+              <th>Confiança</th>
+              <th>Uso</th>
+              <th>Último Uso</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rule in rules %}
+            <tr data-rule-id="{{ rule.id }}">
+              <td>
+                <div class="font-medium">{{ rule.raw_description_sample or rule.normalized_description }}</div>
+                <div class="text-muted" style="font-size:11px">{{ rule.normalized_description }}</div>
+                {% if rule.cluster_key and rule.cluster_key != "unknown" %}
+                <div class="text-muted" style="font-size:10px">Grupo: {{ rule.cluster_key[:8] }}</div>
+                {% endif %}
+              </td>
+              <td>{{ rule.transaction_type or '—' }}</td>
+              <td>
+                <span class="badge {% if (rule.confidence_score or 0) >= 0.8 %}badge-success{% elif (rule.confidence_score or 0) >= 0.6 %}badge-warning{% else %}badge-shared{% endif %}">
+                  {{ '%.0f'|format((rule.confidence_score or 0) * 100) }}%
+                </span>
+              </td>
+              <td>{{ rule.usage_count or 0 }}</td>
+              <td>{{ rule.last_used_label or 'Nunca' }}</td>
+              <td>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-sm btn-ghost" onclick="editRule('{{ rule.id }}')" title="Editar">✏️</button>
+                  <button class="btn btn-sm btn-ghost" onclick="toggleRule('{{ rule.id }}')" title="{{ 'Desativar' if rule.is_active else 'Ativar' }}">
+                    {% if rule.is_active %}🚫{% else %}✅{% endif %}
+                  </button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteRule('{{ rule.id }}')" title="Excluir">🗑️</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:28px 12px">
+        <div class="empty-icon">🧠</div>
+        <div class="empty-text">Ainda não há regras aprendidas. Elas começam a aparecer conforme você registra e confirma lançamentos.</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px">📈 Estatísticas de Aprendizado</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px">
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:600;color:var(--accent)">{{ rules | length }}</div>
+          <div style="font-size:12px;color:var(--text3)">Regras Ativas</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:600;color:var(--success)">
+            {{ rules_stats.mature_count }}
+          </div>
+          <div style="font-size:12px;color:var(--text3)">Regras Maduras</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:600;color:var(--warning)">
+            {{ rules_stats.total_usage }}
+          </div>
+          <div style="font-size:12px;color:var(--text3)">Total de Usos</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:600;color:var(--text)">
+            {{ rules_stats.avg_confidence_pct }}%
+          </div>
+          <div style="font-size:12px;color:var(--text3)">Confiança Média</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:8px">Como funciona a V2</div>
+      <div class="insight-item insight-info">
+        <div class="insight-icon">🧠</div>
+        <div>
+          <div class="insight-title">IA explicável e governável</div>
+          <div class="insight-desc">Cada sugestão vem com justificativas baseadas em dados reais: histórico de uso, recência, padrões similares e confiança calculada.</div>
+        </div>
+      </div>
+      <div class="insight-item insight-ok">
+        <div class="insight-icon">🎯</div>
+        <div>
+          <div class="insight-title">Aprendizado inteligente</div>
+          <div class="insight-desc">O sistema aprende com controle: penaliza erros, recompensa acertos, e aplica pesos baseados no volume de feedback para evitar viés.</div>
+        </div>
+      </div>
+      <div class="insight-item insight-warning">
+        <div class="insight-icon">⚡</div>
+        <div>
+          <div class="insight-title">Matching avançado</div>
+          <div class="insight-desc">Reconhece padrões mesmo com descrições ligeiramente diferentes, usando similaridade de tokens e agrupamento inteligente.</div>
+        </div>
+      </div>
+      <div class="insight-item insight-success" style="margin-bottom:0">
+        <div class="insight-icon">🔄</div>
+        <div>
+          <div class="insight-title">Adaptação temporal</div>
+          <div class="insight-desc">Regras antigas perdem força automaticamente (decay exponencial), mantendo o sistema atualizado com seus hábitos atuais.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+<!-- EDIT RULE MODAL -->
+<div class="modal-overlay" id="edit-rule-modal" onclick="if(event.target===this)closeModal('edit-rule-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Editar Regra de Aprendizado</div><button class="modal-close" onclick="closeModal('edit-rule-modal')">✕</button></div>
+    <div class="form-group">
+      <label class="form-label">Descrição Normalizada</label>
+      <input class="form-input" id="edit-rule-description" readonly style="background:var(--bg3)">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tipo de Transação</label>
+      <select class="form-input" id="edit-rule-type">
+        <option value="income">Receita</option>
+        <option value="expense">Despesa</option>
+        <option value="transfer">Transferência</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Aplicar Automaticamente</label>
+      <input type="checkbox" id="edit-rule-auto-apply" style="width:18px;height:18px">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('edit-rule-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="saveRuleEdit()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+{% block extra_scripts %}
+<script>
+function collectIntelligenceSettings() {
+  const payload = {};
+  document.querySelectorAll('.intel-toggle').forEach(input => {
+    payload[input.dataset.key] = input.checked;
+  });
+  document.querySelectorAll('.intel-range').forEach(input => {
+    payload[input.dataset.key] = input.type === 'number' && input.step === '1'
+      ? parseInt(input.value || '0', 10)
+      : parseFloat(input.value || '0');
+  });
+  return payload;
+}
+
+async function saveIntelligenceSettings() {
+  const payload = collectIntelligenceSettings();
+  const response = await fetch('/api/intelligence/settings', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    showToast(data.detail || 'Erro ao salvar configurações.', 'error');
+    return;
+  }
+  showToast('Configurações de inteligência salvas!', 'success');
+}
+
+async function editRule(ruleId) {
+  // Fetch current rule data
+  const response = await fetch('/api/intelligence/rules');
+  const rules = await response.json();
+  const rule = rules.find(r => r.id === ruleId);
+  
+  if (!rule) {
+    showToast('Regra não encontrada.', 'error');
+    return;
+  }
+  
+  // Populate modal
+  document.getElementById('edit-rule-description').value = rule.normalized_description;
+  document.getElementById('edit-rule-type').value = rule.transaction_type || '';
+  document.getElementById('edit-rule-auto-apply').checked = rule.is_auto_apply || false;
+  
+  // Store rule ID for saving
+  document.getElementById('edit-rule-modal').dataset.ruleId = ruleId;
+  
+  openModal('edit-rule-modal');
+}
+
+async function saveRuleEdit() {
+  const ruleId = document.getElementById('edit-rule-modal').dataset.ruleId;
+  const transactionType = document.getElementById('edit-rule-type').value;
+  const isAutoApply = document.getElementById('edit-rule-auto-apply').checked;
+  
+  const payload = {
+    transaction_type: transactionType,
+    is_auto_apply: isAutoApply
+  };
+  
+  const response = await fetch(`/api/intelligence/rules/${ruleId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    showToast('Erro ao salvar regra.', 'error');
+    return;
+  }
+  
+  showToast('Regra atualizada!', 'success');
+  closeModal('edit-rule-modal');
+  location.reload(); // Refresh to show changes
+}
+
+async function toggleRule(ruleId) {
+  const response = await fetch(`/api/intelligence/rules/${ruleId}/toggle`, {
+    method: 'PATCH',
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    showToast('Erro ao alterar status da regra.', 'error');
+    return;
+  }
+  showToast('Regra atualizada!', 'success');
+  location.reload(); // Refresh to show changes
+}
+
+async function deleteRule(ruleId) {
+  if (!confirm('Tem certeza que deseja excluir esta regra?')) return;
+  const response = await fetch(`/api/intelligence/rules/${ruleId}`, {
+    method: 'DELETE',
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    showToast('Erro ao excluir regra.', 'error');
+    return;
+  }
+  showToast('Regra excluída!', 'success');
+  location.reload(); // Refresh to show changes
+}
+
+async function markAlertRead(alertId) {
+  const response = await fetch(`/api/intelligence/alerts/${alertId}/read`, {
+    method: 'PATCH',
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    showToast('Erro ao marcar alerta como lido.', 'error');
+    return;
+  }
+  showToast('Alerta marcado como lido!', 'success');
+  location.reload(); // Refresh to show changes
+}
+
+async function dismissAlert(alertId) {
+  if (!confirm('Tem certeza que deseja dispensar este alerta?')) return;
+  const response = await fetch(`/api/intelligence/alerts/${alertId}/dismiss`, {
+    method: 'PATCH',
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    showToast('Erro ao dispensar alerta.', 'error');
+    return;
+  }
+  showToast('Alerta dispensado!', 'success');
+  location.reload(); // Refresh to show changes
+}
+</script>
+{% endblock %}

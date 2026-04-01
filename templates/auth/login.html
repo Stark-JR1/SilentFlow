@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — FinTrack Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#f5f3ef; --card:#fffdf9; --soft:#f1ece4; --border:#e8e0d4; --border2:#d9cfbf;
+      --text:#2f2b27; --text2:#6d655c; --text3:#9b9184; --accent:#e06c2f; --accent2:#c95a20;
+      --green:#4f8f67; --red:#d46a64; --shadow:0 22px 48px rgba(72,56,36,.10);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:radial-gradient(circle at top, #faf7f2 0%, var(--bg) 60%);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .shell{width:100%;max-width:1040px;display:grid;grid-template-columns:1.15fr .85fr;gap:28px;align-items:stretch}
+    .panel{background:#2c2c34;color:#f4f1ec;border-radius:26px;padding:38px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+    .panel::after{content:'';position:absolute;inset:auto -80px -120px auto;width:280px;height:280px;border-radius:50%;background:rgba(224,108,47,.12)}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:34px}
+    .brand-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#eb7b40 0%,#d86124 100%);box-shadow:0 10px 18px rgba(224,108,47,.25)}
+    .brand-title{font-size:20px;font-weight:700}.brand-sub{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42)}
+    .headline{font-size:34px;line-height:1.08;font-weight:700;max-width:420px;margin-bottom:14px;letter-spacing:-.03em}
+    .lead{font-size:14px;line-height:1.6;color:rgba(255,255,255,.68);max-width:410px;margin-bottom:28px}
+    .feature-list{display:grid;gap:12px}
+    .feature{display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07)}
+    .feature strong{display:block;font-size:13px}.feature span{display:block;font-size:12px;color:rgba(255,255,255,.55);margin-top:2px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:32px;box-shadow:0 16px 32px rgba(72,56,36,.08)}
+    .card h1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+    .sub{font-size:13px;color:var(--text2);margin-bottom:22px}
+    label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+    input{width:100%;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:12px 13px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;transition:border-color .15s, box-shadow .15s}
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)}
+    input::placeholder{color:var(--text3)}
+    .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;transition:all .15s;margin-top:4px;background:var(--accent);color:#fff;box-shadow:0 12px 20px rgba(224,108,47,.18)}
+    .btn:hover{background:var(--accent2);transform:translateY(-1px)}
+    .error,.success{border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+    .error{background:rgba(212,106,100,.10);border:1px solid rgba(212,106,100,.24);color:var(--red)}
+    .success{background:rgba(79,143,103,.10);border:1px solid rgba(79,143,103,.24);color:var(--green)}
+    .footer{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:13px;color:var(--text2)}
+    .footer a,.label-row a{color:var(--accent2);text-decoration:none;font-weight:600}
+    .footer a:hover,.label-row a:hover{text-decoration:underline}
+    .label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .label-row label{margin-bottom:0}
+    @media (max-width: 880px){.shell{grid-template-columns:1fr}.panel{display:none}.card{max-width:440px;margin:0 auto}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <section class="panel">
+    <div class="brand">
+      <div class="brand-icon">💰</div>
+      <div>
+        <div class="brand-title">FinTrack</div>
+        <div class="brand-sub">Ubuntu Inspired UI</div>
+      </div>
+    </div>
+    <div class="headline">Controle financeiro com leitura rápida e ambiente limpo.</div>
+    <div class="lead">Uma interface clara, confortável e profissional, inspirada na organização visual do Ubuntu moderno e desenhada para uso diário sem atrito.</div>
+    <div class="feature-list">
+      <div class="feature"><div>◈</div><div><strong>Visão consolidada</strong><span>Saldo, gastos e metas acessíveis em poucos segundos.</span></div></div>
+      <div class="feature"><div>◎</div><div><strong>Navegação objetiva</strong><span>Estrutura previsível, rápida de entender e fácil de operar.</span></div></div>
+      <div class="feature"><div>↻</div><div><strong>Foco em rotina</strong><span>Recorrentes, cartões e relatórios com leitura limpa.</span></div></div>
+    </div>
+  </section>
+
+  <div class="card">
+    <h1>Bem-vindo de volta</h1>
+    <div class="sub">Entre na sua conta para continuar</div>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/auth/login">
+      <label>Email</label>
+      <input type="email" name="email" placeholder="seu@email.com" required autocomplete="email" />
+      <div class="label-row">
+        <label>Senha</label>
+        <a href="/auth/reset-password">Esqueci a senha</a>
+      </div>
+      <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
+      <button type="submit" class="btn">Entrar</button>
+    </form>
+
+    <div class="footer">
+      Não tem conta? <a href="/auth/register">Criar conta grátis</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

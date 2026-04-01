@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% set active_page = "recurring" %}
+{% block title %}Recorrentes - FinTrack Pro{% endblock %}
+{% block page_title %}Lancamentos Recorrentes{% endblock %}
+
+{% block content %}
+
+<div class="grid-3" style="margin-bottom:18px">
+  <div class="kpi-card"><div class="kpi-accent" style="background:var(--green)"></div>
+    <div class="kpi-label">Receitas recorrentes/mes</div>
+    <div class="kpi-value text-success">{{ total_income | currency }}</div>
+  </div>
+  <div class="kpi-card"><div class="kpi-accent" style="background:var(--red)"></div>
+    <div class="kpi-label">Despesas recorrentes/mes</div>
+    <div class="kpi-value text-danger">{{ total_expenses | currency }}</div>
+  </div>
+  <div class="kpi-card"><div class="kpi-accent" style="background:var(--accent)"></div>
+    <div class="kpi-label">Resultado recorrente</div>
+    {% set net = total_income - total_expenses %}
+    <div class="kpi-value {% if net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ net | currency }}</div>
+  </div>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+    <div class="card-title">Lancamentos ativos</div>
+    <button class="btn btn-primary" style="font-size:11px;padding:6px 12px" onclick="openModal('rec-modal')">+ Novo</button>
+  </div>
+
+  {% for rec in active_recurring %}
+  {% set cat = rec.category %}
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.02)'" onmouseout="this.style.background='transparent'">
+    <div class="tx-icon" style="background:{{ cat.color if cat else '#6c63ff' }}18">{{ cat.icon if cat else '[]' }}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:500">{{ rec.description }}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">
+        {{ frequency_labels.get(rec.frequency, rec.frequency) }}{% if rec.day_of_month %} · Dia {{ rec.day_of_month }}{% endif %}
+        <span class="badge {% if rec.scope == 'shared' %}badge-shared{% else %}badge-personal{% endif %}" style="margin-left:6px">{% if rec.scope == 'shared' %}Familiar{% else %}Pessoal{% endif %}</span>
+        <span class="badge badge-recurring" style="margin-left:4px">Ativo</span>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="mono font-medium {% if rec.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+        {% if rec.type == 'income' %}+{% else %}-{% endif %}{{ rec.amount | currency }}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">Prox: {{ rec.next_date | date_br }}</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center" class="row-actions">
+      <button
+        class="btn btn-ghost"
+        type="button"
+        style="min-width:96px;justify-content:center;font-size:12px;padding:8px 12px"
+        onclick="pauseRecurring('{{ rec.id }}')"
+        aria-label="Pausar recorrente {{ rec.description }}"
+      >
+        Pausar
+      </button>
+      <button
+        class="btn btn-ghost"
+        type="button"
+        style="min-width:96px;justify-content:center;font-size:12px;padding:8px 12px;color:var(--red);border-color:rgba(212,106,100,.28)"
+        onclick="deleteRecurring('{{ rec.id }}')"
+        aria-label="Excluir recorrente {{ rec.description }}"
+      >
+        Excluir
+      </button>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">[]</div><div class="empty-text">Nenhum lancamento recorrente ativo.</div></div>
+  {% endfor %}
+</div>
+
+{% if paused_recurring %}
+<div class="card" style="padding:0;overflow:hidden;margin-top:16px">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+    <div class="card-title">Lancamentos pausados</div>
+  </div>
+
+  {% for rec in paused_recurring %}
+  {% set cat = rec.category %}
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);opacity:.78">
+    <div class="tx-icon" style="background:{{ cat.color if cat else '#6c63ff' }}18">{{ cat.icon if cat else '[]' }}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:500">{{ rec.description }}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">
+        {{ frequency_labels.get(rec.frequency, rec.frequency) }}{% if rec.day_of_month %} · Dia {{ rec.day_of_month }}{% endif %}
+        <span class="badge {% if rec.scope == 'shared' %}badge-shared{% else %}badge-personal{% endif %}" style="margin-left:6px">{% if rec.scope == 'shared' %}Familiar{% else %}Pessoal{% endif %}</span>
+        <span class="badge badge-recurring" style="margin-left:4px;opacity:.75">Pausado</span>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="mono font-medium {% if rec.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+        {% if rec.type == 'income' %}+{% else %}-{% endif %}{{ rec.amount | currency }}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">Prox: {{ rec.next_date | date_br }}</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center" class="row-actions">
+      <button
+        class="btn btn-ghost"
+        type="button"
+        style="min-width:96px;justify-content:center;font-size:12px;padding:8px 12px"
+        disabled
+        aria-label="Recorrente pausado {{ rec.description }}"
+      >
+        Pausado
+      </button>
+      <button
+        class="btn btn-ghost"
+        type="button"
+        style="min-width:96px;justify-content:center;font-size:12px;padding:8px 12px;color:var(--red);border-color:rgba(212,106,100,.28)"
+        onclick="deleteRecurring('{{ rec.id }}')"
+        aria-label="Excluir recorrente pausado {{ rec.description }}"
+      >
+        Excluir
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- MODAL -->
+<div class="modal-overlay" id="rec-modal" onclick="if(event.target===this)closeModal('rec-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Novo Lancamento Recorrente</div><button class="modal-close" onclick="closeModal('rec-modal')">x</button></div>
+    <div class="type-toggle" id="rec-type-toggle">
+      <button class="type-btn active-expense" onclick="setRecType('expense',this)">Despesa</button>
+      <button class="type-btn" onclick="setRecType('income',this)">Receita</button>
+      <button class="type-btn" onclick="setRecType('transfer',this)">Transferencia</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Descricao</label><input class="form-input" id="r-desc" placeholder="Ex: Netflix, Salario..."/></div>
+      <div class="form-group"><label class="form-label">Valor</label><input class="form-input mono" id="r-amount" placeholder="0,00"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Categoria</label>
+        <select class="form-select" id="r-cat">
+          <option value="">Selecionar...</option>
+          {% for cat in categories %}<option value="{{ cat.id }}">{{ cat.icon }} {{ cat.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Frequencia</label>
+        <select class="form-select" id="r-freq" onchange="toggleDayField()">
+          {% for k,v in frequency_labels.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data inicio</label><input type="date" class="form-input" id="r-start"/></div>
+      <div class="form-group" id="day-field"><label class="form-label">Dia do mes</label><input type="number" class="form-input" id="r-day" min="1" max="31" value="5"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Visibilidade</label>
+      <select class="form-select" id="r-scope"><option value="personal">Pessoal</option><option value="shared">Familiar</option></select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('rec-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="saveRecurring()">Criar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+document.getElementById('r-start').value = new Date().toISOString().split('T')[0];
+let recType = 'expense';
+function setRecType(t, btn) {
+  recType = t;
+  document.querySelectorAll('#rec-type-toggle .type-btn').forEach(b => b.className = 'type-btn');
+  btn.classList.add(`active-${t}`);
+}
+function toggleDayField() {
+  const freq = document.getElementById('r-freq').value;
+  document.getElementById('day-field').style.display = freq === 'monthly' ? '' : 'none';
+}
+async function saveRecurring() {
+  const payload = {
+    type:         recType,
+    scope:        document.getElementById('r-scope').value,
+    description:  document.getElementById('r-desc').value,
+    amount:       parseFloat(document.getElementById('r-amount').value.replace(',','.')) || 0,
+    category_id:  document.getElementById('r-cat').value,
+    frequency:    document.getElementById('r-freq').value,
+    start_date:   document.getElementById('r-start').value,
+    day_of_month: document.getElementById('r-freq').value === 'monthly' ? parseInt(document.getElementById('r-day').value) : null,
+  };
+  const r = await fetch('/api/recurring', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  if (r.ok) { showToast('Recorrente criado!','success'); setTimeout(()=>location.reload(),600); }
+  else { const e = await r.json(); showToast(e.detail||'Erro','error'); }
+}
+
+async function pauseRecurring(id) {
+  if (!confirm('Pausar este lancamento recorrente?')) return;
+  const r = await fetch(`/api/recurring/${id}`, { method: 'PATCH' });
+  if (r.ok) {
+    showToast('Recorrente pausado!', 'success');
+    setTimeout(() => location.reload(), 500);
+  } else {
+    const e = await r.json();
+    showToast(e.detail || 'Erro ao pausar.', 'error');
+  }
+}
+
+async function deleteRecurring(id) {
+  if (!confirm('Excluir este lancamento recorrente?')) return;
+  const r = await fetch(`/api/recurring/${id}`, { method: 'DELETE' });
+  if (r.ok || r.status === 204) {
+    showToast('Recorrente excluido!', 'success');
+    setTimeout(() => location.reload(), 500);
+  } else {
+    const e = await r.json();
+    showToast(e.detail || 'Erro ao excluir.', 'error');
+  }
+}
+</script>
+{% endblock %}

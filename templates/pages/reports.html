@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% set active_page = "reports" %}
+{% block title %}Relatórios — FinTrack Pro{% endblock %}
+{% block page_title %}Relatórios{% endblock %}
+{% block topbar_extra %}
+<div class="month-nav">
+  <button class="month-btn" onclick="changeMonth(-1)">◀</button>
+  <div class="month-label">{{ kpis.month }}</div>
+  <button class="month-btn" onclick="changeMonth(1)">▶</button>
+</div>
+{% endblock %}
+{% block content %}
+
+<!-- KPI ROW -->
+<div class="grid-4" style="margin-bottom:18px">
+  {% for label, val, color in [
+    ('Receitas',        kpis.total_income,   'var(--green)'),
+    ('Despesas',        kpis.total_expenses, 'var(--red)'),
+    ('Resultado',       kpis.net_result,     'var(--green)' if kpis.net_result >= 0 else 'var(--red)'),
+    ('Taxa Poupança',   none,                'var(--accent)')
+  ] %}
+  <div class="card" style="text-align:center">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">{{ label }}</div>
+    <div class="mono font-bold" style="font-size:20px;color:{{ color }}">
+      {% if label == 'Taxa Poupança' %}{{ kpis.savings_rate }}%{% else %}{{ val | currency }}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- AREA CHART -->
+<div class="card" style="margin-bottom:18px">
+  <div class="card-title" style="margin-bottom:14px">Fluxo de Caixa — Últimos 6 Meses</div>
+  <div class="chart-box">
+    <canvas id="areaChart"></canvas>
+  </div>
+</div>
+
+<!-- BOTTOM GRID -->
+<div class="grid-2">
+  <!-- Expenses by category -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">Despesas por Categoria</div>
+    {% for cat in categories %}
+    <div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:var(--text2)">{{ cat.icon }} {{ cat.name }}</span>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="color:var(--text3)">{{ cat.percentage | round(1) }}%</span>
+          <span class="mono font-medium" style="min-width:70px;text-align:right">{{ cat.total | currency }}</span>
+        </div>
+      </div>
+      <div class="progress-wrap" style="height:5px">
+        <div class="progress-fill" style="width:{{ cat.percentage }}%;background:{{ cat.color }}"></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-text">Sem despesas no período.</div></div>
+    {% endfor %}
+  </div>
+
+  <!-- Comparisons -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px">Pessoal vs Familiar</div>
+      {% set total_exp = personal_exp + shared_exp %}
+      {% for label, val, color in [('Pessoal', personal_exp, 'var(--accent)'), ('Compartilhado', shared_exp, 'var(--teal)')] %}
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <span style="color:var(--text2)">{{ label }}</span>
+          <span class="mono font-medium" style="color:{{ color }}">{{ val | currency }}</span>
+        </div>
+        <div class="progress-wrap" style="height:8px">
+          <div class="progress-fill" style="width:{% if total_exp > 0 %}{{ (val / total_exp * 100) | round }}{% else %}0{% endif %}%;background:{{ color }}"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px">Comparativo Mensal</div>
+      {% for ev in evolution[-3:] %}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;{% if loop.last %}border:none;font-weight:600{% endif %}">
+        <span style="color:{% if loop.last %}var(--text){% else %}var(--text2){% endif %}">{{ ev.month }}{% if loop.last %} ←{% endif %}</span>
+        <span class="mono {% if ev.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ ev.net | currency }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const evo = {{ evolution | tojson }};
+new Chart(document.getElementById('areaChart'), {
+  type: 'line',
+  data: {
+    labels: evo.length ? evo.map(d => d.month) : ['Sem dados'],
+    datasets: [
+      {
+        label: 'Receitas',
+        data: evo.length ? evo.map(d => d.income) : [0],
+        borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.12)',
+        borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3,
+      },
+      {
+        label: 'Despesas',
+        data: evo.length ? evo.map(d => d.expenses) : [0],
+        borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.08)',
+        borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3,
+      },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {
+      legend: { labels: { color: '#8890a4', font: { size: 11 } } },
+      tooltip: { callbacks: { label: ctx => ` R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}` } }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#555d72', font: { size: 11 } }, border: { display: false } },
+      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#555d72', font: { size: 10 },
+        callback: v => v >= 1000 ? `R$ ${(v/1000).toFixed(0)}k` : `R$ ${v}` }, border: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}

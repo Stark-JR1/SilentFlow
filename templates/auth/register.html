@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar conta — FinTrack Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f5f3ef;--card:#fffdf9;--soft:#f1ece4;--border:#e8e0d4;--border2:#d9cfbf;--text:#2f2b27;--text2:#6d655c;--text3:#9b9184;--accent:#e06c2f;--accent2:#c95a20;--green:#4f8f67;--red:#d46a64;--shadow:0 20px 42px rgba(72,56,36,.10)}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:radial-gradient(circle at top,#faf7f2 0%,var(--bg) 60%);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:32px;width:100%;max-width:420px;box-shadow:var(--shadow)}
+    .logo{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:24px}.logo-icon{width:42px;height:42px;background:linear-gradient(180deg,#eb7b40 0%,#d86124 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff}
+    label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}.fg{margin-bottom:14px}
+    input{width:100%;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:11px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .15s, box-shadow .15s}
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)} input::placeholder{color:var(--text3)}
+    .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;background:var(--accent);color:#fff;margin-top:8px;transition:background .15s, transform .15s;box-shadow:0 12px 20px rgba(224,108,47,.18)}
+    .btn:hover{background:var(--accent2);transform:translateY(-1px)}
+    .error{background:rgba(212,106,100,.10);border:1px solid rgba(212,106,100,.24);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--red);margin-bottom:14px}
+    .success-box{background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:16px;padding:18px;text-align:center}
+    .footer{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:13px;color:var(--text2)} .footer a{color:var(--accent2);text-decoration:none;font-weight:600}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">💰</div>
+    <div>
+      <div style="font-size:18px;font-weight:700">FinTrack</div>
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-top:-2px">Conta pessoal</div>
+    </div>
+  </div>
+
+  {% if success %}
+  <div class="success-box">
+    <div style="font-size:32px;margin-bottom:10px">📧</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Verifique seu email</div>
+    <div style="font-size:13px;color:var(--text2)">Enviamos um link de confirmação para <strong style="color:var(--text)">{{ email }}</strong>.</div>
+    <a href="/auth/login" class="btn" style="margin-top:16px">Ir para o login</a>
+  </div>
+  {% else %}
+  <h1 style="font-size:24px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em">Criar conta</h1>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:18px">Comece a controlar suas finanças com uma interface limpa e rápida.</div>
+
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/auth/register">
+    <div class="fg"><label>Nome completo</label><input type="text" name="full_name" placeholder="João Silva" required /></div>
+    <div class="fg"><label>Email</label><input type="email" name="email" placeholder="seu@email.com" required /></div>
+    <div class="fg"><label>Senha</label><input type="password" name="password" placeholder="Mínimo 6 caracteres" required /></div>
+    <div class="fg"><label>Confirmar senha</label><input type="password" name="confirm" placeholder="Repita a senha" required /></div>
+    <button type="submit" class="btn">Criar conta</button>
+  </form>
+
+  <div class="footer">
+    Já tem conta? <a href="/auth/login">Fazer login</a>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

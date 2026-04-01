@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% set active_page = "cards" %}
+{% block title %}Cartões — FinTrack Pro{% endblock %}
+{% block page_title %}Cartões de Crédito{% endblock %}
+
+{% block content %}
+
+<!-- CARDS STRIP -->
+<div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:8px;margin-bottom:20px">
+  {% for card in cards %}
+  {% set used = card.credit_limit - card.available_limit %}
+  {% set pct  = ((used / card.credit_limit) * 100) | round | int if card.credit_limit > 0 else 0 %}
+  <div class="cc-card" style="width:220px;flex-shrink:0;background:linear-gradient(135deg,{{ card.color_start or '#1a1040' }},{{ card.color_end or '#2d1b6e' }})">
+    <div class="cc-ring"></div>
+    <div class="cc-bank">{{ card.bank_name }}</div>
+    <div class="cc-limit">{{ used | currency }}</div>
+    <div class="cc-used-label">de {{ card.credit_limit | currency }}</div>
+    <div style="margin-top:8px;background:rgba(255,255,255,.15);border-radius:4px;height:3px;overflow:hidden">
+      <div style="width:{{ pct }}%;height:100%;border-radius:4px;background:rgba(255,255,255,.75)"></div>
+    </div>
+    {% if card.last_four %}<div class="cc-number">•••• •••• •••• {{ card.last_four }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  <button onclick="openModal('card-modal')" style="width:220px;flex-shrink:0;border-radius:14px;border:1px dashed rgba(255,255,255,.12);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:rgba(255,255,255,.3);cursor:pointer;min-height:140px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.3)'">
+    <span style="font-size:24px">+</span><span style="font-size:12px">Novo cartão</span>
+  </button>
+</div>
+
+<!-- DETAILS GRID -->
+{% if cards %}
+{% set card = cards[0] %}
+{% set used = card.credit_limit - card.available_limit %}
+{% set pct  = ((used / card.credit_limit) * 100) | round | int if card.credit_limit > 0 else 0 %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">Fatura {{ card.name }}</div>
+    <div class="mono" style="font-size:30px;font-weight:700;color:var(--red);margin-bottom:16px">{{ used | currency }}</div>
+    {% for row in [('Limite total', card.credit_limit | currency, ''), ('Disponível', card.available_limit | currency, 'var(--green)'), ('Fechamento', 'Dia ' ~ card.closing_day, ''), ('Vencimento', 'Dia ' ~ card.due_day, '')] %}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="color:var(--text2)">{{ row[0] }}</span>
+      <span class="mono font-medium" {% if row[2] %}style="color:{{ row[2] }}"{% endif %}>{{ row[1] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div class="card-title" style="margin-bottom:16px;align-self:flex-start">Uso do limite</div>
+    <div style="position:relative;width:140px;height:140px;margin-bottom:16px">
+      <svg width="140" height="140" style="transform:rotate(-90deg)">
+        <circle cx="70" cy="70" r="56" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+        <circle cx="70" cy="70" r="56" fill="none"
+          stroke="{% if pct >= 80 %}var(--red){% elif pct >= 60 %}var(--amber){% else %}var(--green){% endif %}"
+          stroke-width="12"
+          stroke-dasharray="{{ (pct / 100 * 351.86) | round(2) }} 351.86"
+          stroke-linecap="round"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <span class="mono" style="font-size:22px;font-weight:700">{{ pct }}%</span>
+        <span style="font-size:10px;color:var(--text3)">usado</span>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3)">{{ used | currency }} de {{ card.credit_limit | currency }}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- PRÓXIMAS FATURAS -->
+{% if cards %}
+<div class="card" style="margin-top:16px">
+  <div class="card-title" style="margin-bottom:12px">Próximas Faturas</div>
+  {% set total_faturas = cards | sum(attribute='credit_limit') - cards | sum(attribute='available_limit') %}
+  {% for card in cards %}
+  {% set used = card.credit_limit - card.available_limit %}
+  <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px">
+    <span style="color:var(--text2)">{{ card.name }} — Próxima fatura</span>
+    <span class="mono font-medium" style="color:var(--red)">{{ used | currency }}</span>
+  </div>
+  {% endfor %}
+  <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:13px;font-weight:600">
+    <span>Total previsto</span>
+    <span class="mono" style="color:var(--red)">{{ total_faturas | currency }}</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" id="card-modal" onclick="if(event.target===this)closeModal('card-modal')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Novo Cartão</div><button class="modal-close" onclick="closeModal('card-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="c-name" placeholder="Ex: Nubank Gold"/></div>
+      <div class="form-group"><label class="form-label">Banco</label><input class="form-input" id="c-bank" placeholder="Ex: Nubank"/></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label class="form-label">4 últimos dígitos</label><input class="form-input mono" id="c-digits" placeholder="0000" maxlength="4"/></div>
+      <div class="form-group"><label class="form-label">Bandeira</label>
+        <select class="form-select" id="c-network">
+          <option value="visa">Visa</option><option value="mastercard">Mastercard</option>
+          <option value="elo">Elo</option><option value="amex">Amex</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Limite</label><input class="form-input mono" id="c-limit" placeholder="0,00"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Fechamento</label><input type="number" class="form-input" id="c-closing" min="1" max="31" value="28"/></div>
+      <div class="form-group"><label class="form-label">Vencimento</label><input type="number" class="form-input" id="c-due" min="1" max="31" value="5"/></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cor do cartão</label>
+      <div style="display:flex;gap:8px" id="grad-picker">
+        {% for g in [('#1a1040','#2d1b6e'),('#0a2540','#0e3d6e'),('#0d2818','#1a4a2e'),('#2a1408','#4a2010'),('#082828','#0e3c3c')] %}
+        <button type="button" onclick="selectGrad(this,'{{ g[0] }}','{{ g[1] }}')"
+          style="width:44px;height:28px;border-radius:8px;border:2px solid transparent;cursor:pointer;transition:all .15s;background:linear-gradient(135deg,{{ g[0] }},{{ g[1] }})"
+          data-start="{{ g[0] }}" data-end="{{ g[1] }}"></button>
+        {% endfor %}
+      </div>
+      <input type="hidden" id="c-grad-start" value="#1a1040">
+      <input type="hidden" id="c-grad-end"   value="#2d1b6e">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('card-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="saveCard()">Criar cartão</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function selectGrad(btn, start, end) {
+  document.querySelectorAll('#grad-picker button').forEach(b => b.style.borderColor = 'transparent');
+  btn.style.borderColor = 'rgba(255,255,255,.5)';
+  document.getElementById('c-grad-start').value = start;
+  document.getElementById('c-grad-end').value   = end;
+}
+async function saveCard() {
+  const payload = {
+    name:         document.getElementById('c-name').value,
+    bank_name:    document.getElementById('c-bank').value,
+    last_four:    document.getElementById('c-digits').value || null,
+    network:      document.getElementById('c-network').value,
+    credit_limit: parseFloat(document.getElementById('c-limit').value.replace(',','.')) || 0,
+    closing_day:  parseInt(document.getElementById('c-closing').value),
+    due_day:      parseInt(document.getElementById('c-due').value),
+    color_start:  document.getElementById('c-grad-start').value,
+    color_end:    document.getElementById('c-grad-end').value,
+  };
+  const r = await fetch('/api/cards', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  if (r.ok) { showToast('Cartão criado!','success'); setTimeout(()=>location.reload(),600); }
+  else { const e = await r.json(); showToast(e.detail||'Erro ao criar','error'); }
+}
+</script>
+{% endblock %}
