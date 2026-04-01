@@ -18,6 +18,11 @@ except (RuntimeError, ValidationError) as e:
 
 from app.routers import auth, pages, api
 
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+
 app = FastAPI(
     title="FinTrack Pro",
     description="App de finanças pessoais e familiares",
