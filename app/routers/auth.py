@@ -119,7 +119,7 @@ async def reset_submit(request: Request, email: str = Form(...)):
     supabase = get_supabase()
     try:
         redirect_to = f"{settings.app_url.rstrip('/')}/auth/reset-password/confirm"
-        supabase.auth.reset_password_email(email, options={"redirect_to": redirect_to})
+        supabase.auth.reset_password_email(email, {"redirect_to": redirect_to})
         return templates.TemplateResponse(
             request,
             "auth/reset.html",
@@ -195,7 +195,7 @@ async def reset_confirm_submit(
         return templates.TemplateResponse(
             request,
             "auth/reset_confirm.html",
-            {"request": request, "error": None, "success": True},
+            {"request": request, "error": None, "success": True, "redirect_to_login": True},
         )
     except Exception as e:
         return templates.TemplateResponse(

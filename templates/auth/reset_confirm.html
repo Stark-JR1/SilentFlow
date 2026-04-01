@@ -22,12 +22,13 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)
   <h1 style="font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em">Definir nova senha</h1>
   <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Crie uma nova senha para sua conta.</p>
   {% if success %}
-  <div style="background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--green);margin-bottom:14px">Senha atualizada com sucesso. Voce ja pode entrar com a nova senha.</div>
-  <div style="margin-bottom:14px;text-align:center"><a href="/auth/login">Ir para o login</a></div>
+  <div style="background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--green);margin-bottom:14px">Senha atualizada com sucesso</div>
+  <div style="margin-bottom:14px;text-align:center"><a href="/auth/login">Ir para login</a></div>
   {% endif %}
   {% if error %}
   <div style="background:rgba(212,106,100,.10);border:1px solid rgba(212,106,100,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--red);margin-bottom:14px">{{ error }}</div>
   {% endif %}
+  {% if not success %}
   <form method="post" action="/auth/reset-password/confirm" id="reset-confirm-form">
     <input type="hidden" name="access_token" id="access_token">
     <input type="hidden" name="refresh_token" id="refresh_token">
@@ -38,6 +39,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)
     <button class="btn" type="submit">Salvar nova senha</button>
   </form>
   <div style="margin-top:18px;text-align:center"><a href="/auth/login"><- Voltar para o login</a></div>
+  {% endif %}
 </div>
 <script>
   (function () {
@@ -52,5 +54,12 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)
     }
   })();
 </script>
+{% if success and redirect_to_login %}
+<script>
+  setTimeout(() => {
+    window.location.href = "/auth/login";
+  }, 2000);
+</script>
+{% endif %}
 </body>
 </html>

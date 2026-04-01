@@ -89,5 +89,15 @@
     </div>
   </div>
 </div>
+<script>
+  (function () {
+    const hash = window.location.hash || "";
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    const type = params.get("type");
+    if (type === "recovery") {
+      window.location.href = "/auth/reset-password/confirm" + window.location.hash;
+    }
+  })();
+</script>
 </body>
 </html>

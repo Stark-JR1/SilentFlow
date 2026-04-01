@@ -152,7 +152,7 @@ Acesse: **http://localhost:8000**
    - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 4. Adicione as variáveis de ambiente do `.env.example`
 5. Defina `APP_ENV=production`
-6. No Render, `APP_URL` é obrigatório e deve apontar para a URL pública da aplicação, por exemplo: `https://silentflow.onrender.com`
+6. No Render, `APP_URL` é obrigatório e deve apontar para a URL publica da aplicacao, por exemplo: `https://silentflow.onrender.com`
 7. Deploy!
 
 ---
