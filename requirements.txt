@@ -15,4 +15,4 @@ babel==2.14.0
 itsdangerous==2.2.0
 starlette==0.37.2
 pypdf==6.0.0
-gunicorn==22.0.0
+gunicorn==23.0.0
