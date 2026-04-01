@@ -16,6 +16,7 @@ class QueryStub:
         self._lt_filters = []
         self._order_by = None
         self._desc = False
+        self._limit = None
         self._maybe_single = False
         self._insert_payload = None
         self._upsert_payload = None
@@ -38,6 +39,10 @@ class QueryStub:
     def order(self, field, desc=False):
         self._order_by = field
         self._desc = desc
+        return self
+
+    def limit(self, value):
+        self._limit = value
         return self
 
     def maybe_single(self):
@@ -84,6 +89,9 @@ class QueryStub:
 
         if self._order_by:
             matched.sort(key=lambda item: item.get(self._order_by), reverse=self._desc)
+
+        if self._limit is not None:
+            matched = matched[: self._limit]
 
         if self._maybe_single:
             return SimpleNamespace(data=matched[0] if matched else None, count=1 if matched else 0)

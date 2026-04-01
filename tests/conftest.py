@@ -269,6 +269,11 @@ class FakeAuthedClient:
 class FakeSupabaseAuth:
     def __init__(self, users):
         self.users = users
+        self.last_reset_email = None
+        self.last_reset_options = None
+        self.current_access_token = None
+        self.current_refresh_token = None
+        self.updated_password = None
 
     def sign_in_with_password(self, payload):
         email = payload.get("email", "")
@@ -303,10 +308,33 @@ class FakeSupabaseAuth:
             )
         )
 
-    def reset_password_email(self, email):
+    def reset_password_email(self, email, options=None):
         if "@" not in email:
             raise Exception("Invalid email")
+        self.last_reset_email = email
+        self.last_reset_options = options or {}
         return True
+
+    def set_session(self, access_token, refresh_token):
+        self.current_access_token = access_token
+        self.current_refresh_token = refresh_token
+        return SimpleNamespace(
+            user=SimpleNamespace(id="user-1", email="user@example.com", user_metadata={"full_name": "Usuario Teste"}),
+            session=SimpleNamespace(access_token=access_token, refresh_token=refresh_token),
+        )
+
+    def set_auth(self, access_token):
+        self.current_access_token = access_token
+        return True
+
+    def update_user(self, payload):
+        password = payload.get("password") if isinstance(payload, dict) else None
+        if not self.current_access_token:
+            raise Exception("Missing access token")
+        if not password:
+            raise Exception("Password required")
+        self.updated_password = password
+        return SimpleNamespace(user=SimpleNamespace(id="user-1", email="user@example.com"))
 
     def sign_out(self):
         return True
@@ -792,7 +820,8 @@ def app_client(monkeypatch):
             for tx in rows
         ]
 
-    monkeypatch.setattr(auth_router, "get_supabase", lambda: FakeSupabase(users))
+    fake_supabase = FakeSupabase(users)
+    monkeypatch.setattr(auth_router, "get_supabase", lambda: fake_supabase)
     monkeypatch.setattr(api_router, "get_authed_client", get_authed_client)
     monkeypatch.setattr(pages_router, "get_authed_client", get_authed_client)
 
@@ -829,7 +858,7 @@ def app_client(monkeypatch):
             follow_redirects=False,
         )
 
-    return SimpleNamespace(client=client, state=state, users=users, login=login)
+    return SimpleNamespace(client=client, state=state, users=users, login=login, supabase=fake_supabase)
 
 
 @pytest.fixture

@@ -102,6 +102,7 @@ SUPABASE_ANON_KEY=sua-anon-key
 SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
 APP_SECRET_KEY=minimo-32-caracteres-aleatorios
 JWT_SECRET_KEY=outro-secret-aleatorio
+APP_URL=http://localhost:8000
 ```
 
 ### 3. Configurar banco de dados
@@ -131,7 +132,12 @@ Acesse: **http://localhost:8000**
 2. Copie **Project URL** e **anon key** em Settings > API
 3. Copie **service_role key** em Settings > API > Project API keys
 4. Execute os SQLs conforme acima
-5. Em **Authentication > URL Configuration**, adicione `http://localhost:8000` como Site URL
+5. Em **Authentication > URL Configuration**, defina a Site URL correta para o ambiente:
+   - local: `http://localhost:8000`
+   - producao: `https://silentflow.onrender.com`
+6. Em **Authentication > URL Configuration > Redirect URLs**, inclua:
+   - `http://localhost:8000/auth/reset-password/confirm`
+   - `https://silentflow.onrender.com/auth/reset-password/confirm`
 6. Em **Authentication > Email Templates**, configure os templates de email (opcional)
 
 ---
@@ -146,7 +152,8 @@ Acesse: **http://localhost:8000**
    - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 4. Adicione as variáveis de ambiente do `.env.example`
 5. Defina `APP_ENV=production`
-6. Deploy!
+6. No Render, `APP_URL` é obrigatório e deve apontar para a URL pública da aplicação, por exemplo: `https://silentflow.onrender.com`
+7. Deploy!
 
 ---
 
@@ -160,6 +167,7 @@ Acesse: **http://localhost:8000**
 | `APP_SECRET_KEY`            | Secret para cookies de sessão      | ✅          |
 | `APP_ENV`                   | `development` ou `production`      | ✅          |
 | `APP_PORT`                  | Porta (default: 8000)              | ❌          |
+| `APP_URL`                   | URL base da aplicacao              | ✅          |
 | `JWT_SECRET_KEY`            | Secret JWT                         | ✅          |
 
 ---
@@ -192,6 +200,7 @@ GET  /alerts
 GET  /auth/login
 GET  /auth/register
 GET  /auth/reset-password
+GET  /auth/reset-password/confirm
 ```
 
 ### Auth
@@ -199,6 +208,7 @@ GET  /auth/reset-password
 POST /auth/login
 POST /auth/register
 POST /auth/reset-password
+POST /auth/reset-password/confirm
 GET  /auth/logout
 ```
 

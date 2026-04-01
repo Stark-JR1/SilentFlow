@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_port: int = 8000
     app_host: str = "0.0.0.0"
+    app_url: str = Field(default="", validation_alias="APP_URL")
 
     jwt_secret_key: str = "change-me-jwt-secret"
     jwt_algorithm: str = "HS256"
@@ -35,6 +36,13 @@ class Settings(BaseSettings):
     learning_enabled: bool = True
     profile_enabled: bool = True
     alerts_enabled: bool = True
+
+    def model_post_init(self, __context):
+        if not self.app_url:
+            if str(self.app_env).lower() == "production":
+                self.app_url = "https://silentflow.onrender.com"
+            else:
+                self.app_url = "http://localhost:8000"
 
 @lru_cache
 def get_settings() -> Settings:
@@ -49,5 +57,4 @@ def get_settings() -> Settings:
             "e preencha SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY."
         )
     return Settings()
-
 

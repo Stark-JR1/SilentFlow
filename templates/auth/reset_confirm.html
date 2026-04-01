@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Redefinir senha — FinTrack Pro</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Definir nova senha - FinTrack Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -14,24 +14,43 @@ input{width:100%;background:var(--card);border:1px solid var(--border2);border-r
 input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)}
 .btn{display:flex;justify-content:center;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;background:var(--accent);color:#fff;margin-top:4px;box-shadow:0 12px 20px rgba(224,108,47,.18)}
 .btn:hover{background:var(--accent2)}a{color:var(--accent2);text-decoration:none;font-size:13px;font-weight:600}
+.hidden{display:none}
 </style></head>
 <body>
 <div class="card">
-  <div style="font-size:30px;text-align:center;margin-bottom:16px">🔑</div>
-  <h1 style="font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em">Redefinir senha</h1>
-  <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Informe seu email para receber o link de recuperacao.</p>
+  <div style="font-size:30px;text-align:center;margin-bottom:16px">[lock]</div>
+  <h1 style="font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em">Definir nova senha</h1>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:18px">Crie uma nova senha para sua conta.</p>
   {% if success %}
-  <div style="background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--green);margin-bottom:14px">Email enviado com sucesso.</div>
+  <div style="background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--green);margin-bottom:14px">Senha atualizada com sucesso. Voce ja pode entrar com a nova senha.</div>
+  <div style="margin-bottom:14px;text-align:center"><a href="/auth/login">Ir para o login</a></div>
   {% endif %}
   {% if error %}
   <div style="background:rgba(212,106,100,.10);border:1px solid rgba(212,106,100,.24);border-radius:14px;padding:14px;font-size:13px;color:var(--red);margin-bottom:14px">{{ error }}</div>
   {% endif %}
-  <form method="post" action="/auth/reset-password">
-    <label>Email</label>
-    <input type="email" name="email" placeholder="seu@email.com" required>
-    <button class="btn" type="submit">Enviar link</button>
+  <form method="post" action="/auth/reset-password/confirm" id="reset-confirm-form">
+    <input type="hidden" name="access_token" id="access_token">
+    <input type="hidden" name="refresh_token" id="refresh_token">
+    <label>Nova senha</label>
+    <input type="password" name="password" minlength="8" required>
+    <label>Confirmar nova senha</label>
+    <input type="password" name="confirm" minlength="8" required>
+    <button class="btn" type="submit">Salvar nova senha</button>
   </form>
-  <div style="margin-top:18px;text-align:center"><a href="/auth/login">← Voltar para o login</a></div>
+  <div style="margin-top:18px;text-align:center"><a href="/auth/login"><- Voltar para o login</a></div>
 </div>
+<script>
+  (function () {
+    if (!window.location.hash) return;
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token") || "";
+    const refreshToken = params.get("refresh_token") || "";
+    if (accessToken) {
+      document.getElementById("access_token").value = accessToken;
+      document.getElementById("refresh_token").value = refreshToken;
+    }
+  })();
+</script>
 </body>
 </html>

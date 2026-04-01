@@ -118,7 +118,8 @@ async def reset_page(request: Request):
 async def reset_submit(request: Request, email: str = Form(...)):
     supabase = get_supabase()
     try:
-        supabase.auth.reset_password_email(email)
+        redirect_to = f"{settings.app_url.rstrip('/')}/auth/reset-password/confirm"
+        supabase.auth.reset_password_email(email, options={"redirect_to": redirect_to})
         return templates.TemplateResponse(
             request,
             "auth/reset.html",
@@ -128,6 +129,78 @@ async def reset_submit(request: Request, email: str = Form(...)):
         return templates.TemplateResponse(
             request,
             "auth/reset.html",
+            {"request": request, "error": str(e), "success": False},
+            status_code=400,
+        )
+
+
+@router.get("/reset-password/confirm", response_class=HTMLResponse)
+async def reset_confirm_page(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "auth/reset_confirm.html",
+        {"request": request, "error": None, "success": False},
+    )
+
+
+@router.post("/reset-password/confirm", response_class=HTMLResponse)
+async def reset_confirm_submit(
+    request: Request,
+    password: str = Form(...),
+    confirm: str = Form(...),
+    access_token: str = Form(""),
+    refresh_token: str = Form(""),
+):
+    if password != confirm:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_confirm.html",
+            {"request": request, "error": "As senhas nao coincidem", "success": False},
+            status_code=400,
+        )
+    if len(password) < 8:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_confirm.html",
+            {"request": request, "error": "A senha deve ter pelo menos 8 caracteres", "success": False},
+            status_code=400,
+        )
+    if not any(char.isalpha() for char in password) or not any(char.isdigit() for char in password):
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_confirm.html",
+            {"request": request, "error": "A senha deve conter pelo menos uma letra e um numero", "success": False},
+            status_code=400,
+        )
+    if not access_token:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_confirm.html",
+            {"request": request, "error": "Token de recuperacao ausente ou invalido", "success": False},
+            status_code=400,
+        )
+
+    supabase = get_supabase()
+    try:
+        if refresh_token:
+            supabase.auth.set_session(access_token, refresh_token)
+        else:
+            setter = getattr(supabase.auth, "set_auth", None)
+            if callable(setter):
+                setter(access_token)
+            else:
+                supabase.auth.set_session(access_token, "")
+
+        supabase.auth.update_user({"password": password})
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_confirm.html",
+            {"request": request, "error": None, "success": True},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_confirm.html",
             {"request": request, "error": str(e), "success": False},
             status_code=400,
         )

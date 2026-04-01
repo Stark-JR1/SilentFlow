@@ -664,6 +664,30 @@ def generate_and_store_alerts(client, user_id: str) -> list[dict]:
         .order("date", desc=True)
     )
 
+    if not current_month_transactions:
+        last_tx_rows = _safe_select_list(
+            lambda: client.table("transactions")
+            .select("date")
+            .eq("user_id", user_id)
+            .order("date", desc=True)
+            .limit(1)
+        )
+        last_date = last_tx_rows[0].get("date") if last_tx_rows else None
+        if last_date:
+            try:
+                parsed_last = datetime.fromisoformat(str(last_date)[:19])
+                current_month_dt = _month_start(parsed_last)
+                current_month = current_month_dt.date().isoformat()
+                current_month_transactions = _safe_select_list(
+                    lambda: client.table("transactions")
+                    .select("id, date, amount, type, category_id, account_id, card_id, description")
+                    .eq("user_id", user_id)
+                    .gte("date", current_month)
+                    .order("date", desc=True)
+                )
+            except ValueError:
+                pass
+
     prev_month_date = current_month_dt
     if prev_month_date.month == 1:
         prev_month_date = prev_month_date.replace(year=prev_month_date.year - 1, month=12)
