@@ -61,7 +61,7 @@
         <th>Data</th>
         <th>Escopo</th>
         <th style="text-align:right">Valor</th>
-        <th style="width:40px"></th>
+        <th style="width:140px"></th>
       </tr>
     </thead>
     <tbody>
@@ -85,7 +85,10 @@
           </span>
         </td>
         <td>
-          <button onclick="deleteTx('{{ tx.id }}')" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px" title="Excluir">🗑</button>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="openEditTx('{{ tx.id }}'); return false;" title="Editar">Editar</button>
+            <button type="button" class="btn btn-danger" style="padding:7px 12px;font-size:12px" onclick="deleteTx('{{ tx.id }}'); return false;" title="Excluir">Excluir</button>
+          </div>
         </td>
       </tr>
       {% else %}
@@ -111,6 +114,86 @@
 {% endblock %}
 {% block extra_scripts %}
 <script>
+const txIndex = (function () {
+  const rows = [
+    {% for tx in txs %}
+    {
+      id: "{{ tx.id }}",
+      type: "{{ tx.type }}",
+      description: {{ tx.description | tojson }},
+      amount: {{ tx.amount | default(0) }},
+      category_id: {{ tx.category_id | tojson }},
+      date: "{{ tx.date }}",
+      scope: "{{ tx.scope | default('personal') }}",
+      payment_method: "{{ tx.payment_method | default('account') }}",
+      account_id: {{ tx.account_id | tojson }},
+      card_id: {{ tx.card_id | tojson }},
+      credit_card_id: {{ tx.credit_card_id | tojson }},
+      due_date: {{ tx.due_date | tojson }},
+      status: "{{ tx.status | default('paid') }}",
+      notes: {{ tx.notes | tojson }},
+      is_installment: {{ 'true' if tx.is_installment else 'false' }},
+      total_installments: {{ tx.total_installments | default(0) }},
+      installment_total: {{ tx.installment_total | default(0) }},
+    },
+    {% endfor %}
+  ];
+  const map = {};
+  (rows || []).forEach((row) => { map[row.id] = row; });
+  return map;
+})();
+let editingTxId = null;
+
+function setModalLabels(editing) {
+  const title = document.querySelector('#tx-modal .modal-title');
+  const saveBtn = document.querySelector('#tx-modal .btn.btn-primary');
+  if (title) title.textContent = editing ? 'Editar Transacao' : 'Nova Transacao';
+  if (saveBtn) saveBtn.textContent = editing ? 'Salvar alteracoes' : 'Salvar transacao';
+}
+
+async function openEditTx(id) {
+  const tx = txIndex[id];
+  if (!tx) return;
+  editingTxId = id;
+  setModalLabels(true);
+  resetTxSuggestion();
+
+  if (typeof loadTxModalData === 'function') {
+    await loadTxModalData();
+  }
+
+  const typeBtn = Array.from(document.querySelectorAll('.type-btn')).find((btn) => {
+    const text = btn.textContent.toLowerCase();
+    if (tx.type === 'expense') return text.includes('despesa');
+    if (tx.type === 'income') return text.includes('receita');
+    return text.includes('transfer');
+  });
+  if (typeBtn) setTxType(tx.type, typeBtn);
+
+  document.getElementById('tx-desc').value = tx.description || '';
+  const amountValue = parseFloat(tx.amount || 0).toFixed(2);
+  document.getElementById('tx-amount').value = `R$ ${amountValue.replace('.', ',')}`;
+  document.getElementById('tx-category').value = tx.category_id || '';
+  document.getElementById('tx-date').value = (tx.date || '').slice(0, 10);
+  document.getElementById('tx-scope').value = tx.scope || 'personal';
+  document.getElementById('tx-payment-method').value = tx.payment_method || 'account';
+  document.getElementById('tx-account').value = tx.account_id || '';
+  document.getElementById('tx-card').value = tx.card_id || tx.credit_card_id || '';
+  document.getElementById('tx-due-date').value = (tx.due_date || '').slice(0, 10);
+  document.getElementById('tx-status').value = tx.status || 'paid';
+  document.getElementById('tx-notes').value = tx.notes || '';
+
+  handlePaymentMethodChange();
+  const isInstallment = Boolean(tx.is_installment);
+  document.getElementById('tx-installment').checked = isInstallment;
+  toggleInstallment();
+  if (isInstallment) {
+    document.getElementById('tx-parcelas').value = tx.total_installments || tx.installment_total || 2;
+  }
+
+  openModal('tx-modal');
+}
+
 async function deleteTx(id) {
   if (!confirm('Excluir esta transação?')) return;
   const r = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
@@ -119,5 +202,117 @@ async function deleteTx(id) {
     setTimeout(() => location.reload(), 600);
   }
 }
+
+async function saveTx() {
+  const amountRaw = document.getElementById('tx-amount').value;
+  const desc      = document.getElementById('tx-desc').value.trim();
+  const catId     = document.getElementById('tx-category').value;
+  const date      = document.getElementById('tx-date').value;
+  const errEl     = document.getElementById('tx-error');
+
+  if (!desc || !amountRaw || !catId || !date) {
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Preencha todos os campos obrigatorios.';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  const nums   = amountRaw.replace(/\D/g,'');
+  const amount = parseInt(nums) / 100;
+  const isInst = txPaymentMethod === 'card' && document.getElementById('tx-installment').checked;
+  const parcelas = parseInt(document.getElementById('tx-parcelas').value) || 2;
+  const accountId = document.getElementById('tx-account').value || null;
+  const cardId = document.getElementById('tx-card').value || null;
+  const dueDate = document.getElementById('tx-due-date').value || null;
+  const status = document.getElementById('tx-status').value || null;
+
+  if (['account', 'pix', 'cash'].includes(txPaymentMethod) && !accountId) {
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Selecione uma conta para esta forma de pagamento.';
+    return;
+  }
+  if (txPaymentMethod === 'card' && !cardId) {
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Selecione um cartao.';
+    return;
+  }
+  if (txPaymentMethod === 'boleto' && !dueDate) {
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Informe o vencimento do boleto.';
+    return;
+  }
+
+  const payload = {
+    type:               txType,
+    scope:              document.getElementById('tx-scope').value,
+    payment_method:     txPaymentMethod,
+    status:             txPaymentMethod === 'boleto' ? status : 'paid',
+    description:        desc,
+    amount:             amount,
+    date:               date,
+    category_id:        catId,
+    account_id:         txPaymentMethod === 'card' ? null : accountId,
+    card_id:            txPaymentMethod === 'card' ? cardId : null,
+    due_date:           txPaymentMethod === 'boleto' ? dueDate : null,
+    notes:              document.getElementById('tx-notes').value || null,
+    is_installment:     isInst,
+    total_installments: isInst ? parcelas : null,
+    installment_total:  isInst ? parcelas : null,
+  };
+
+  try {
+    const isEditing = Boolean(editingTxId);
+    const url = isEditing ? `/api/transactions/${editingTxId}` : '/api/transactions';
+    const method = isEditing ? 'PATCH' : 'POST';
+    const r = await fetch(url, {
+      method,
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const e = await r.json();
+      errEl.style.display = 'block';
+      errEl.textContent   = e.detail || 'Erro ao salvar.';
+      return;
+    }
+    const saved = await r.json();
+    if (!isEditing) {
+      await sendTxFeedback(saved);
+    }
+    editingTxId = null;
+    setModalLabels(false);
+    closeModal('tx-modal');
+    resetTxSuggestion();
+    showToast(isEditing ? 'Transacao atualizada!' : 'Transacao salva!', 'success');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) {
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Erro de conexao.';
+  }
+}
+
+const _openModalOriginal = window.openModal;
+window.openModal = function(id) {
+  if (id === 'tx-modal' && !editingTxId) {
+    setModalLabels(false);
+  }
+  if (typeof _openModalOriginal === 'function') {
+    return _openModalOriginal(id);
+  }
+};
+
+const _closeModalOriginal = window.closeModal;
+window.closeModal = function(id) {
+  if (id === 'tx-modal') {
+    editingTxId = null;
+    setModalLabels(false);
+  }
+  if (typeof _closeModalOriginal === 'function') {
+    return _closeModalOriginal(id);
+  }
+};
+
+window.openEditTx = openEditTx;
+window.deleteTx = deleteTx;
 </script>
 {% endblock %}

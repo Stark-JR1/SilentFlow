@@ -1,174 +1,1103 @@
 {% extends "base.html" %}
 {% set active_page = "dashboard" %}
-{% block title %}Dashboard — FinTrack Pro{% endblock %}
+{% block title %}Dashboard - FinTrack Pro{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 
+{% set current_evo = evolution[-1] if evolution|length else none %}
+{% set previous_evo = evolution[-2] if evolution|length > 1 else none %}
+{% set current_net = (current_evo.income - current_evo.expenses) if current_evo else kpis.net_result %}
+{% set previous_net = (previous_evo.income - previous_evo.expenses) if previous_evo else none %}
+{% set comparison_delta = (current_net - previous_net) if previous_net is not none else none %}
+{% set savings_positive = kpis.net_result >= 0 %}
+{% set health_tone = 'strong' if kpis.savings_rate >= 20 and savings_positive else 'steady' if savings_positive else 'attention' %}
+{% set health_copy = 'Voce esta construindo margem com folga neste mes.' if health_tone == 'strong' else 'Seu caixa segue equilibrado, com espaco para melhorar.' if health_tone == 'steady' else 'Os gastos estao pressionando o saldo deste mes.' %}
+{% set insight_count = (insights|length) + (alerts.items|length if alerts and alerts.items else 0) %}
+
 {% block topbar_extra %}
-<div class="month-nav">
-  <button class="month-btn" onclick="changeMonth(-1)">◀</button>
-  <div class="month-label">{{ kpis.month }}</div>
-  <button class="month-btn" onclick="changeMonth(1)">▶</button>
+<div class="dashboard-topbar-tools">
+  <div class="dashboard-period">
+    <span class="dashboard-period-label">Periodo</span>
+    <div class="month-nav">
+      <button class="month-btn" onclick="changeMonth(-1)">&#9664;</button>
+      <div class="month-label">{{ kpis.month }}</div>
+      <button class="month-btn" onclick="changeMonth(1)">&#9654;</button>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
+{% block extra_head %}
+<style>
+  .dashboard-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) 340px;
+    gap: 24px;
+    align-items: start;
+  }
+  .dashboard-main,
+  .dashboard-side {
+    display: grid;
+    gap: 22px;
+  }
+  .dashboard-topbar-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 1;
+  }
+  .dashboard-period {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .dashboard-period-label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-weight: 700;
+  }
+  .hero-card {
+    position: relative;
+    overflow: hidden;
+    padding: 28px;
+    min-height: 280px;
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at top right, rgba(234, 118, 47, 0.18), transparent 34%),
+      radial-gradient(circle at left bottom, rgba(108, 145, 117, 0.18), transparent 32%),
+      linear-gradient(135deg, #fff9f3 0%, #fffcf8 46%, #f7f3ed 100%);
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    box-shadow: 0 28px 60px rgba(78, 56, 29, 0.10);
+  }
+  .hero-card::before,
+  .hero-card::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  .hero-card::before {
+    width: 320px;
+    height: 320px;
+    top: -180px;
+    right: -120px;
+    background: linear-gradient(180deg, rgba(34, 44, 39, 0.10), rgba(34, 44, 39, 0));
+  }
+  .hero-card::after {
+    width: 240px;
+    height: 240px;
+    bottom: -120px;
+    right: 80px;
+    border: 1px solid rgba(34, 44, 39, 0.08);
+  }
+  .hero-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+    gap: 20px;
+    align-items: end;
+    height: 100%;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(34, 44, 39, 0.06);
+    color: #243128;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero-title {
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    max-width: 520px;
+    margin-bottom: 10px;
+  }
+  .hero-copy {
+    max-width: 480px;
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 22px;
+  }
+  .hero-value {
+    font-family: var(--mono);
+    font-size: clamp(34px, 4vw, 56px);
+    line-height: 1;
+    letter-spacing: -0.05em;
+    margin-bottom: 14px;
+  }
+  .hero-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .hero-delta,
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .hero-delta.positive,
+  .hero-tag.positive {
+    background: rgba(79, 143, 103, 0.12);
+    color: var(--green);
+  }
+  .hero-delta.negative,
+  .hero-tag.negative {
+    background: rgba(212, 106, 100, 0.12);
+    color: var(--red);
+  }
+  .hero-delta.neutral,
+  .hero-tag.neutral {
+    background: rgba(63, 79, 77, 0.08);
+    color: var(--text2);
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .hero-side {
+    display: grid;
+    gap: 12px;
+    align-self: stretch;
+  }
+  .hero-mini-card {
+    padding: 18px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    backdrop-filter: blur(8px);
+  }
+  .hero-mini-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .hero-mini-value {
+    font-size: 24px;
+    font-family: var(--mono);
+    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+  }
+  .hero-mini-copy {
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .secondary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .premium-stat {
+    padding: 22px;
+    border-radius: 24px;
+    background: rgba(255, 252, 248, 0.95);
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    box-shadow: 0 18px 34px rgba(78, 56, 29, 0.06);
+  }
+  .premium-stat-header,
+  .section-head,
+  .tx-panel-head,
+  .side-card-head,
+  .compact-summary-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .premium-stat-label,
+  .side-card-title,
+  .section-title-premium,
+  .tx-panel-title,
+  .compact-summary-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .premium-stat-badge,
+  .side-pill,
+  .soft-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .soft-badge.positive,
+  .premium-stat-badge.positive,
+  .side-pill.positive {
+    background: rgba(79, 143, 103, 0.12);
+    color: var(--green);
+  }
+  .soft-badge.warning,
+  .premium-stat-badge.warning,
+  .side-pill.warning {
+    background: rgba(201, 146, 61, 0.14);
+    color: var(--amber);
+  }
+  .soft-badge.negative,
+  .premium-stat-badge.negative,
+  .side-pill.negative {
+    background: rgba(212, 106, 100, 0.12);
+    color: var(--red);
+  }
+  .soft-badge.neutral,
+  .premium-stat-badge.neutral,
+  .side-pill.neutral {
+    background: rgba(63, 79, 77, 0.08);
+    color: var(--text2);
+  }
+  .premium-stat-value {
+    margin: 18px 0 8px;
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-family: var(--mono);
+  }
+  .premium-stat-copy,
+  .section-subtitle,
+  .side-card-subtitle,
+  .compact-summary-copy {
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .premium-stat-footer {
+    margin-top: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .premium-stat-line {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(94, 76, 52, 0.08);
+    overflow: hidden;
+  }
+  .premium-stat-line span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), #f3aa75);
+  }
+  .chart-panel,
+  .tx-panel,
+  .side-card,
+  .compact-summary {
+    padding: 24px;
+    border-radius: 26px;
+    background: rgba(255, 252, 248, 0.96);
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    box-shadow: 0 18px 34px rgba(78, 56, 29, 0.06);
+  }
+  .chart-panel .chart-box {
+    height: 320px;
+    margin-top: 18px;
+  }
+  .chart-highlight {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .chart-kpi {
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: var(--bg3);
+    border: 1px solid rgba(101, 83, 60, 0.06);
+  }
+  .chart-kpi-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 7px;
+    font-weight: 700;
+  }
+  .chart-kpi-value {
+    font-size: 19px;
+    font-family: var(--mono);
+    letter-spacing: -0.03em;
+  }
+  .dashboard-side {
+    position: sticky;
+    top: 0;
+  }
+  .category-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .category-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .category-marker {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+  }
+  .category-meta {
+    min-width: 0;
+  }
+  .category-name-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    margin-bottom: 7px;
+  }
+  .category-name {
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .category-percent {
+    color: var(--text3);
+    font-weight: 700;
+  }
+  .category-bar {
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(94, 76, 52, 0.08);
+    overflow: hidden;
+  }
+  .category-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+  }
+  .category-total {
+    font-size: 12px;
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--text);
+  }
+  .donut-wrap.premium-donut {
+    width: 170px;
+    height: 170px;
+    margin-bottom: 6px;
+  }
+  .premium-donut .donut-total {
+    font-size: 17px;
+  }
+  .premium-donut .donut-sub {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .insight-stack,
+  .bill-stack,
+  .compact-summary-grid {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .insight-premium {
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    background: #fff;
+  }
+  .insight-premium.positive {
+    background: rgba(79, 143, 103, 0.08);
+    border-color: rgba(79, 143, 103, 0.14);
+  }
+  .insight-premium.warning {
+    background: rgba(201, 146, 61, 0.10);
+    border-color: rgba(201, 146, 61, 0.16);
+  }
+  .insight-premium.negative {
+    background: rgba(212, 106, 100, 0.08);
+    border-color: rgba(212, 106, 100, 0.14);
+  }
+  .insight-premium.neutral {
+    background: rgba(63, 79, 77, 0.05);
+    border-color: rgba(63, 79, 77, 0.09);
+  }
+  .insight-premium-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .insight-premium-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.75);
+    font-size: 16px;
+  }
+  .insight-premium-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .insight-premium-copy {
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .bill-card {
+    padding: 16px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid rgba(101, 83, 60, 0.08);
+  }
+  .bill-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .bill-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .bill-due {
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .bill-amount {
+    font-family: var(--mono);
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .bill-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .tx-summary-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+    gap: 18px;
+  }
+  .tx-group {
+    margin-top: 18px;
+  }
+  .tx-group:first-of-type {
+    margin-top: 0;
+  }
+  .tx-group-label {
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .premium-tx-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(101, 83, 60, 0.08);
+  }
+  .premium-tx-row:first-of-type {
+    border-top: 0;
+  }
+  .premium-tx-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  .premium-tx-main {
+    min-width: 0;
+    flex: 1;
+  }
+  .premium-tx-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .premium-tx-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .tx-meta-divider {
+    color: var(--text3);
+  }
+  .premium-tx-amount {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .premium-tx-amount small {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--font);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0;
+  }
+  .empty-premium {
+    padding: 28px 22px;
+    border-radius: 22px;
+    background: rgba(63, 79, 77, 0.04);
+    border: 1px dashed rgba(101, 83, 60, 0.12);
+    text-align: center;
+  }
+  .empty-premium-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .empty-premium-copy {
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .compact-summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .compact-summary-card {
+    padding: 16px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid rgba(101, 83, 60, 0.08);
+  }
+  .compact-summary-value {
+    margin-top: 10px;
+    font-size: 24px;
+    font-family: var(--mono);
+    letter-spacing: -0.03em;
+  }
+  .compact-summary-foot {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .section-link {
+    color: var(--accent2);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .section-link:hover {
+    color: var(--accent);
+  }
+  @media (max-width: 1280px) {
+    .dashboard-shell {
+      grid-template-columns: 1fr;
+    }
+    .dashboard-side {
+      position: static;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 1100px) {
+    .hero-grid,
+    .tx-summary-layout,
+    .dashboard-side,
+    .secondary-grid {
+      grid-template-columns: 1fr;
+    }
+    .chart-highlight {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 720px) {
+    .hero-card,
+    .chart-panel,
+    .tx-panel,
+    .side-card,
+    .premium-stat,
+    .compact-summary {
+      padding: 20px;
+      border-radius: 22px;
+    }
+    .dashboard-period {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .dashboard-topbar-tools {
+      width: 100%;
+    }
+    .month-nav {
+      flex: 1;
+      justify-content: flex-end;
+    }
+    .month-label {
+      min-width: 116px;
+    }
+    .premium-tx-row {
+      align-items: flex-start;
+    }
+    .premium-tx-amount {
+      min-width: 110px;
+      font-size: 15px;
+    }
+  }
+  @media (max-width: 560px) {
+    .dashboard-topbar-tools,
+    .dashboard-period,
+    .hero-meta-row,
+    .hero-actions,
+    .premium-stat-footer,
+    .section-head,
+    .tx-panel-head,
+    .side-card-head,
+    .compact-summary-head {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .month-nav {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .hero-title {
+      font-size: 30px;
+    }
+    .hero-value {
+      font-size: 38px;
+    }
+    .premium-tx-row {
+      flex-wrap: wrap;
+    }
+    .premium-tx-amount {
+      text-align: left;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="dashboard-shell">
+  <section class="dashboard-main">
+    <div class="hero-card">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Panorama do mes</div>
+          <h1 class="hero-title">Saldo disponivel agora</h1>
+          <div class="hero-copy">
+            Uma leitura rapida do seu caixa para decidir com mais clareza onde acelerar, segurar ou redistribuir.
+          </div>
+          <div class="hero-value">{{ kpis.consolidated_balance | currency }}</div>
+          <div class="hero-meta-row">
+            {% if comparison_delta is not none %}
+            <span class="hero-delta {{ 'positive' if comparison_delta >= 0 else 'negative' }}">
+              {{ '+' if comparison_delta >= 0 else '-' }} {{ comparison_delta | abs | currency }} vs mes anterior
+            </span>
+            {% else %}
+            <span class="hero-delta neutral">Comparativo mensal disponivel assim que houver historico suficiente</span>
+            {% endif %}
+            <span class="hero-tag {{ 'positive' if savings_positive else 'negative' }}">
+              {{ kpis.savings_rate }}% de poupanca no periodo
+            </span>
+          </div>
+          <div class="hero-actions">
+            <button class="btn btn-primary" onclick="openModal('tx-modal')">+ Nova transacao</button>
+            <a href="/reports" class="btn btn-ghost">Ver relatorios</a>
+          </div>
+        </div>
 
-<!-- KPI CARDS -->
-<div class="grid-4" style="margin-bottom:18px">
-  <div class="kpi-card">
-    <div class="kpi-accent" style="background:var(--green)"></div>
-    <div class="kpi-label">Saldo Consolidado</div>
-    <div class="kpi-value">{{ kpis.consolidated_balance | currency }}</div>
-    <span class="kpi-delta delta-up">↑ positivo</span>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-accent" style="background:var(--teal)"></div>
-    <div class="kpi-label">Receitas do Mês</div>
-    <div class="kpi-value">{{ kpis.total_income | currency }}</div>
-    <span class="kpi-delta delta-up">↑ receitas</span>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-accent" style="background:var(--red)"></div>
-    <div class="kpi-label">Despesas do Mês</div>
-    <div class="kpi-value">{{ kpis.total_expenses | currency }}</div>
-    <span class="kpi-delta delta-down">↑ despesas</span>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-accent" style="background:var(--accent)"></div>
-    <div class="kpi-label">Resultado Líquido</div>
-    <div class="kpi-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ kpis.net_result | currency }}</div>
-    <span class="kpi-delta {% if kpis.savings_rate >= 0 %}delta-up{% else %}delta-down{% endif %}">{{ kpis.savings_rate }}% poupança</span>
-  </div>
-</div>
+        <div class="hero-side">
+          <div class="hero-mini-card">
+            <div class="hero-mini-label">Resultado do mes</div>
+            <div class="hero-mini-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">
+              {{ kpis.net_result | currency }}
+            </div>
+            <div class="hero-mini-copy">
+              {% if kpis.net_result >= 0 %}
+              Voce economizou e fechou o mes com margem positiva.
+              {% else %}
+              Seu ritmo atual pede ajuste para evitar fechar no vermelho.
+              {% endif %}
+            </div>
+          </div>
+          <div class="hero-mini-card">
+            <div class="hero-mini-label">Leitura rapida</div>
+            <div class="hero-mini-copy">{{ health_copy }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-<!-- CHARTS ROW -->
-<div class="grid-main" style="margin-bottom:18px">
-  <!-- Evolution chart -->
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div><div class="card-title">Evolução Mensal</div><div class="card-sub">Receitas vs Despesas</div></div>
-    </div>
-    <div class="chart-box">
-      <canvas id="evolutionChart"></canvas>
-    </div>
-    <div class="legend">
-      <span><span class="legend-dot" style="background:rgba(34,197,94,.8)"></span>Receitas</span>
-      <span><span class="legend-dot" style="background:rgba(239,68,68,.8)"></span>Despesas</span>
-    </div>
-  </div>
+    <div class="secondary-grid">
+      <article class="premium-stat">
+        <div class="premium-stat-header">
+          <div>
+            <div class="premium-stat-label">Saude Financeira</div>
+            <div class="premium-stat-copy">{{ health_copy }}</div>
+          </div>
+          <span class="premium-stat-badge {{ 'positive' if health_tone == 'strong' else 'neutral' if health_tone == 'steady' else 'negative' }}">
+            {{ 'Forte' if health_tone == 'strong' else 'Estavel' if health_tone == 'steady' else 'Atencao' }}
+          </span>
+        </div>
+        <div class="premium-stat-value">{{ kpis.savings_rate }}%</div>
+        <div class="premium-stat-copy">Taxa de poupanca medida sobre as receitas do periodo.</div>
+        <div class="premium-stat-footer">
+          <div class="premium-stat-line"><span style="width:{{ [kpis.savings_rate, 100]|min if kpis.savings_rate > 0 else 6 }}%"></span></div>
+          <span class="soft-badge {{ 'positive' if kpis.net_result >= 0 else 'negative' }}">
+            {{ 'Caixa positivo' if kpis.net_result >= 0 else 'Pressao no caixa' }}
+          </span>
+        </div>
+      </article>
 
-  <!-- Category donut -->
-  <div class="card">
-    <div><div class="card-title">Por Categoria</div><div class="card-sub">Distribuição de despesas</div></div>
-    <div style="margin:12px 0 10px">
-      <div class="donut-wrap">
+      <article class="premium-stat">
+        <div class="premium-stat-header">
+          <div>
+            <div class="premium-stat-label">Receitas do mes</div>
+            <div class="premium-stat-copy">Entradas que sustentam seu saldo e sua margem.</div>
+          </div>
+          <span class="premium-stat-badge positive">Fluxo de entrada</span>
+        </div>
+        <div class="premium-stat-value" style="color:var(--green)">{{ kpis.total_income | currency }}</div>
+        <div class="premium-stat-copy">
+          {% if kpis.total_income > 0 %}
+          O mes ja registrou entradas suficientes para compor sua visao financeira.
+          {% else %}
+          Ainda nao ha receitas registradas neste periodo.
+          {% endif %}
+        </div>
+        <div class="premium-stat-footer">
+          <div class="premium-stat-line"><span style="width:100%;background:linear-gradient(90deg, rgba(79,143,103,0.9), rgba(79,143,103,0.35))"></span></div>
+          <span class="soft-badge positive">Receita ativa</span>
+        </div>
+      </article>
+
+      <article class="premium-stat">
+        <div class="premium-stat-header">
+          <div>
+            <div class="premium-stat-label">Despesas do mes</div>
+            <div class="premium-stat-copy">Saidas que merecem mais atencao nas proximas decisoes.</div>
+          </div>
+          <span class="premium-stat-badge {{ 'warning' if kpis.total_income >= kpis.total_expenses else 'negative' }}">
+            {{ 'Sob controle' if kpis.total_income >= kpis.total_expenses else 'Acima da receita' }}
+          </span>
+        </div>
+        <div class="premium-stat-value" style="color:var(--red)">{{ kpis.total_expenses | currency }}</div>
+        <div class="premium-stat-copy">
+          {% if kpis.total_income > 0 and kpis.total_expenses <= kpis.total_income %}
+          Seus gastos ainda cabem dentro do que entrou neste mes.
+          {% elif kpis.total_income > 0 %}
+          Voce gastou mais do que ganhou neste periodo.
+          {% else %}
+          As despesas ja aparecem, mas ainda sem entradas para comparacao.
+          {% endif %}
+        </div>
+        <div class="premium-stat-footer">
+          <div class="premium-stat-line"><span style="width:{{ ((kpis.total_expenses / kpis.total_income) * 100)|round if kpis.total_income > 0 else 100 }}%;background:linear-gradient(90deg, rgba(212,106,100,0.9), rgba(234,118,47,0.48))"></span></div>
+          <span class="soft-badge {{ 'warning' if kpis.total_income >= kpis.total_expenses else 'negative' }}">
+            {{ 'Ritmo monitorado' if kpis.total_income >= kpis.total_expenses else 'Ritmo critico' }}
+          </span>
+        </div>
+      </article>
+    </div>
+
+    <article class="chart-panel">
+      <div class="section-head">
+        <div>
+          <div class="section-title-premium">Visao Mensal</div>
+          <div class="section-subtitle">Receitas, despesas e saldo liquido em uma leitura mais narrativa do periodo.</div>
+        </div>
+        <span class="soft-badge neutral">{{ evolution|length }} meses acompanhados</span>
+      </div>
+      <div class="chart-box">
+        <canvas id="evolutionChart"></canvas>
+      </div>
+      <div class="chart-highlight">
+        <div class="chart-kpi">
+          <div class="chart-kpi-label">Receita atual</div>
+          <div class="chart-kpi-value">{{ kpis.total_income | currency }}</div>
+        </div>
+        <div class="chart-kpi">
+          <div class="chart-kpi-label">Despesa atual</div>
+          <div class="chart-kpi-value">{{ kpis.total_expenses | currency }}</div>
+        </div>
+        <div class="chart-kpi">
+          <div class="chart-kpi-label">Saldo liquido</div>
+          <div class="chart-kpi-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">
+            {{ kpis.net_result | currency }}
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <div class="tx-summary-layout">
+      <article class="tx-panel">
+        <div class="tx-panel-head">
+          <div>
+            <div class="tx-panel-title">Ultimas Transacoes</div>
+            <div class="section-subtitle">Movimentos recentes organizados para leitura mais rapida e contexto mais claro.</div>
+          </div>
+          <a href="/transactions" class="section-link">Ver todas</a>
+        </div>
+
+        {% if recent_txs %}
+          {% set tx_group = namespace(last_date='') %}
+          {% for tx in recent_txs %}
+            {% if tx_group.last_date != tx.date %}
+              {% if not loop.first %}</div>{% endif %}
+              <div class="tx-group">
+                <div class="tx-group-label">{{ tx.date | date_br }}</div>
+              {% set tx_group.last_date = tx.date %}
+            {% endif %}
+            <div class="premium-tx-row">
+              <div class="premium-tx-icon" style="background:{{ tx.category.color if tx.category else '#efe5d9' }}18;color:{{ tx.category.color if tx.category else 'var(--accent2)' }}">
+                {{ tx.category.icon if tx.category else '::' }}
+              </div>
+              <div class="premium-tx-main">
+                <div class="premium-tx-name">{{ tx.description }}</div>
+                <div class="premium-tx-meta">
+                  <span>{{ tx.category.name if tx.category else 'Sem categoria' }}</span>
+                  <span class="tx-meta-divider">/</span>
+                  <span>{{ 'Familiar' if tx.scope == 'shared' else 'Pessoal' }}</span>
+                  <span class="tx-meta-divider">/</span>
+                  <span>{{ 'Receita' if tx.type == 'income' else 'Despesa' }}</span>
+                </div>
+              </div>
+              <div class="premium-tx-amount" style="color:{% if tx.type == 'income' %}var(--green){% else %}var(--text){% endif %}">
+                {% if tx.type == 'income' %}+{% else %}-{% endif %}{{ tx.amount | currency }}
+                <small>{{ 'Entrada registrada' if tx.type == 'income' else 'Saida registrada' }}</small>
+              </div>
+            </div>
+            {% if loop.last %}</div>{% endif %}
+          {% endfor %}
+        {% else %}
+        <div class="empty-premium">
+          <div class="empty-premium-title">Ainda nao ha transacoes neste periodo.</div>
+          <div class="empty-premium-copy">Assim que novos movimentos entrarem, este bloco vira sua visao mais rapida do mes.</div>
+        </div>
+        {% endif %}
+      </article>
+
+      <aside class="compact-summary">
+        <div class="compact-summary-head">
+          <div>
+            <div class="compact-summary-title">Resumo do comportamento</div>
+            <div class="compact-summary-copy">Blocos compactos para leitura executiva do periodo.</div>
+          </div>
+        </div>
+        <div class="compact-summary-grid">
+          <div class="compact-summary-card">
+            <div class="compact-summary-title">Voce economizou este mes</div>
+            <div class="compact-summary-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">
+              {{ kpis.net_result | currency }}
+            </div>
+            <div class="compact-summary-foot">
+              {% if kpis.net_result >= 0 %}
+              A combinacao de entradas e despesas gerou margem positiva.
+              {% else %}
+              O mes pede ajuste nas proximas decisoes de gasto.
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="compact-summary-card">
+            <div class="compact-summary-title">Categorias com atividade</div>
+            <div class="compact-summary-value">{{ categories|length }}</div>
+            <div class="compact-summary-foot">
+              {{ 'frentes do orcamento com gasto registrado neste periodo.' if categories else 'Sem categorias movimentadas por enquanto.' }}
+            </div>
+          </div>
+
+          <div class="compact-summary-card">
+            <div class="compact-summary-title">Sinais relevantes</div>
+            <div class="compact-summary-value">{{ insight_count }}</div>
+            <div class="compact-summary-foot">
+              {{ 'insights e alertas reunidos para orientar sua proxima acao.' if insight_count else 'Sem alertas relevantes por enquanto.' }}
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <aside class="dashboard-side">
+    <article class="side-card">
+      <div class="side-card-head">
+        <div>
+          <div class="side-card-title">Por Categoria</div>
+          <div class="side-card-subtitle">Onde as despesas estao se concentrando agora.</div>
+        </div>
+        <span class="side-pill neutral">{{ categories|length }} categorias</span>
+      </div>
+
+      {% if categories %}
+      <div class="donut-wrap premium-donut">
         <canvas id="donutChart"></canvas>
         <div class="donut-center">
           <div class="donut-total">{{ kpis.total_expenses | currency }}</div>
-          <div class="donut-sub">total</div>
+          <div class="donut-sub">despesas</div>
         </div>
       </div>
-    </div>
-    {% for cat in categories[:5] %}
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <div style="width:8px;height:8px;border-radius:50%;background:{{ cat.color }};flex-shrink:0"></div>
-      <span style="font-size:11px;color:var(--text2);flex:1">{{ cat.name }}</span>
-      <div style="flex:2;background:var(--bg3);border-radius:4px;height:4px;overflow:hidden">
-        <div style="height:100%;border-radius:4px;width:{{ cat.percentage }}%;background:{{ cat.color }}"></div>
-      </div>
-      <span style="font-size:11px;font-family:var(--mono);font-weight:500;min-width:60px;text-align:right">{{ cat.total | currency }}</span>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-
-<!-- BOTTOM ROW -->
-<div class="grid-bottom">
-  <!-- Recent transactions -->
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div><div class="card-title">Últimas Transações</div></div>
-      <a href="/transactions" class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Ver todas →</a>
-    </div>
-    {% for tx in recent_txs %}
-    <div class="tx-row">
-      <div class="tx-icon" style="background:{{ tx.category.color if tx.category else '#6c63ff' }}18">{{ tx.category.icon if tx.category else '📦' }}</div>
-      <div style="flex:1;min-width:0">
-        <div class="tx-name">{{ tx.description }}</div>
-        <div class="tx-meta">
-          {{ tx.date | date_br }}
-          {% if tx.category %} · {{ tx.category.name }}{% endif %}
-          <span class="badge {% if tx.scope == 'shared' %}badge-shared{% else %}badge-personal{% endif %}" style="margin-left:4px">{% if tx.scope == 'shared' %}Familiar{% else %}Pessoal{% endif %}</span>
+      <div class="category-list">
+        {% for cat in categories[:5] %}
+        <div class="category-row">
+          <div class="category-marker" style="background:{{ cat.color }}"></div>
+          <div class="category-meta">
+            <div class="category-name-line">
+              <span class="category-name">{{ cat.name }}</span>
+              <span class="category-percent">{{ cat.percentage }}%</span>
+            </div>
+            <div class="category-bar">
+              <span style="width:{{ cat.percentage }}%;background:{{ cat.color }}"></span>
+            </div>
+          </div>
+          <div class="category-total">{{ cat.total | currency }}</div>
         </div>
-      </div>
-      <span class="tx-amount {% if tx.type == 'income' %}amount-income{% else %}amount-expense{% endif %}">
-        {% if tx.type == 'income' %}+{% else %}-{% endif %}{{ tx.amount | currency }}
-      </span>
-    </div>
-    {% else %}
-    <div class="empty-state"><div class="empty-icon">💸</div><div class="empty-text">Nenhuma transação este mês.</div></div>
-    {% endfor %}
-  </div>
-
-  <!-- Insights + Cards -->
-  <div style="display:flex;flex-direction:column;gap:14px">
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px">Insights Automáticos</div>
-      {% for ins in insights %}
-      <div class="insight-item insight-{{ ins.type }}">
-        <div class="insight-icon">{{ ins.icon }}</div>
-        <div>
-          <div class="insight-title">{{ ins.title }}</div>
-          <div class="insight-desc">{{ ins.description }}</div>
-        </div>
+        {% endfor %}
       </div>
       {% else %}
-      <div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">Tudo certo por aqui!</div>
-      {% endfor %}
-    </div>
+      <div class="empty-premium" style="margin-top:18px">
+        <div class="empty-premium-title">Sem despesas categorizadas por enquanto.</div>
+        <div class="empty-premium-copy">Assim que houver movimentacao no periodo, a leitura por categoria aparece aqui.</div>
+      </div>
+      {% endif %}
+    </article>
 
-    <!-- INTELLIGENCE ALERTS -->
-    {% if alerts and alerts.items %}
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px">🚨 Alertas Inteligentes</div>
-      {% for alert in alerts.items[:3] %}
-      <div class="insight-item insight-{% if alert.severity == 'critical' %}danger{% elif alert.severity == 'warning' %}warning{% else %}info{% endif %}">
-        <div class="insight-icon">
-          {% if alert.alert_type == 'category_spike' %}📈{% elif alert.alert_type == 'unusual_transaction' %}⚠️{% elif alert.alert_type == 'low_savings_rate' %}💰{% elif alert.alert_type == 'high_card_usage' %}💳{% else %}🔔{% endif %}
-        </div>
+    <article class="side-card">
+      <div class="side-card-head">
         <div>
-          <div class="insight-title">{{ alert.title }}</div>
-          <div class="insight-desc">{{ alert.message }}</div>
+          <div class="side-card-title">Insights & Alertas</div>
+          <div class="side-card-subtitle">Leituras inteligentes para agir antes do problema crescer.</div>
         </div>
+        <span class="side-pill {{ 'warning' if insight_count else 'neutral' }}">{{ insight_count }} sinais</span>
       </div>
-      {% endfor %}
-      <div style="text-align:center;margin-top:8px">
-        <a href="/intelligence" class="btn btn-ghost" style="font-size:12px">Ver todos →</a>
-      </div>
-    </div>
-    {% endif %}
 
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px">Faturas Próximas</div>
-      {% for card in cards %}
-      {% set used = card.credit_limit - card.available_limit %}
-      {% set pct = (used / card.credit_limit * 100)|round|int if card.credit_limit > 0 else 0 %}
-      <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:var(--text2)">{{ card.name }}</span>
-          <span class="mono font-medium">{{ used | currency }}</span>
+      {% if alerts and alerts.items %}
+      <div class="insight-stack">
+        {% for alert in alerts.items[:2] %}
+        <div class="insight-premium {{ 'negative' if alert.severity == 'critical' else 'warning' if alert.severity == 'warning' else 'neutral' }}">
+          <div class="insight-premium-top">
+            <div class="insight-premium-icon">
+              {% if alert.alert_type == 'category_spike' %}UP{% elif alert.alert_type == 'unusual_transaction' %}!{% elif alert.alert_type == 'low_savings_rate' %}${% elif alert.alert_type == 'high_card_usage' %}CC{% else %}i{% endif %}
+            </div>
+            <div>
+              <div class="insight-premium-title">{{ alert.title }}</div>
+              <div class="insight-premium-copy">{{ alert.message }}</div>
+            </div>
+          </div>
         </div>
-        <div class="progress-wrap progress-sm">
-          <div class="progress-fill" style="width:{{ pct }}%;background:{% if pct >= 80 %}var(--red){% elif pct >= 60 %}var(--amber){% else %}var(--green){% endif %}"></div>
+        {% endfor %}
+        {% for ins in insights[:2] %}
+        <div class="insight-premium {{ 'positive' if ins.type == 'success' else 'warning' if ins.type == 'warning' else 'neutral' }}">
+          <div class="insight-premium-top">
+            <div class="insight-premium-icon">{{ ins.icon }}</div>
+            <div>
+              <div class="insight-premium-title">{{ ins.title }}</div>
+              <div class="insight-premium-copy">{{ ins.description }}</div>
+            </div>
+          </div>
         </div>
+        {% endfor %}
+      </div>
+      {% elif insights %}
+      <div class="insight-stack">
+        {% for ins in insights[:4] %}
+        <div class="insight-premium {{ 'positive' if ins.type == 'success' else 'warning' if ins.type == 'warning' else 'neutral' }}">
+          <div class="insight-premium-top">
+            <div class="insight-premium-icon">{{ ins.icon }}</div>
+            <div>
+              <div class="insight-premium-title">{{ ins.title }}</div>
+              <div class="insight-premium-copy">{{ ins.description }}</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% else %}
-      <div style="font-size:12px;color:var(--text3);text-align:center;padding:10px">Nenhum cartão cadastrado.</div>
-      {% endfor %}
-    </div>
-  </div>
-</div>
+      <div class="empty-premium" style="margin-top:18px">
+        <div class="empty-premium-title">Sem alertas relevantes por enquanto.</div>
+        <div class="empty-premium-copy">Quando houver variacoes que merecem atencao, esta area destaca o que realmente importa.</div>
+      </div>
+      {% endif %}
+    </article>
 
+    <article class="side-card">
+      <div class="side-card-head">
+        <div>
+          <div class="side-card-title">Faturas Proximas</div>
+          <div class="side-card-subtitle">Uso atual dos cartoes e proximo vencimento visivel sem abrir outra tela.</div>
+        </div>
+      </div>
+
+      {% if cards %}
+      <div class="bill-stack">
+        {% for card in cards[:3] %}
+        {% set used = card.credit_limit - card.available_limit %}
+        {% set pct = (used / card.credit_limit * 100)|round|int if card.credit_limit > 0 else 0 %}
+        <div class="bill-card">
+          <div class="bill-card-top">
+            <div>
+              <div class="bill-name">{{ card.name }}</div>
+              <div class="bill-due">Vencimento todo dia {{ card.due_day }}</div>
+            </div>
+            <span class="soft-badge {{ 'negative' if pct >= 80 else 'warning' if pct >= 60 else 'positive' }}">
+              {{ pct }}% usado
+            </span>
+          </div>
+          <div class="bill-amount">{{ used | currency }}</div>
+          <div class="progress-wrap">
+            <div class="progress-fill" style="width:{{ pct }}%;background:{% if pct >= 80 %}var(--red){% elif pct >= 60 %}var(--amber){% else %}var(--green){% endif %}"></div>
+          </div>
+          <div class="bill-foot">
+            <span>Disponivel {{ card.available_limit | currency }}</span>
+            <span>Limite {{ card.credit_limit | currency }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-premium" style="margin-top:18px">
+        <div class="empty-premium-title">Suas proximas faturas aparecerao aqui.</div>
+        <div class="empty-premium-copy">Assim que houver cartoes cadastrados, este bloco vira um lembrete compacto e util.</div>
+      </div>
+      {% endif %}
+    </article>
+  </aside>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -177,66 +1106,169 @@
 const evoData = {{ evolution | tojson }};
 const catData = {{ categories | tojson }};
 
-// Evolution bar chart
-new Chart(document.getElementById('evolutionChart'), {
-  type: 'bar',
+const formatCurrency = (value) =>
+  `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const currentIndex = evoData.length ? evoData.length - 1 : 0;
+const labels = evoData.length ? evoData.map((item) => item.month) : ['Sem dados'];
+const incomeSeries = evoData.length ? evoData.map((item) => item.income) : [0];
+const expenseSeries = evoData.length ? evoData.map((item) => item.expenses) : [0];
+const balanceSeries = evoData.length ? evoData.map((item) => item.income - item.expenses) : [0];
+
+const chartCanvas = document.getElementById('evolutionChart');
+const chartCtx = chartCanvas.getContext('2d');
+const incomeGradient = chartCtx.createLinearGradient(0, 0, 0, 320);
+incomeGradient.addColorStop(0, 'rgba(79, 143, 103, 0.9)');
+incomeGradient.addColorStop(1, 'rgba(79, 143, 103, 0.20)');
+
+const expenseGradient = chartCtx.createLinearGradient(0, 0, 0, 320);
+expenseGradient.addColorStop(0, 'rgba(212, 106, 100, 0.86)');
+expenseGradient.addColorStop(1, 'rgba(212, 106, 100, 0.18)');
+
+new Chart(chartCanvas, {
   data: {
-    labels: evoData.length ? evoData.map(d => d.month) : ['Sem dados'],
+    labels,
     datasets: [
       {
-        label: 'income',
-        data: evoData.length ? evoData.map(d => d.income) : [0],
-        backgroundColor: 'rgba(34,197,94,.75)',
-        borderRadius: 4
+        type: 'bar',
+        label: 'Receitas',
+        data: incomeSeries,
+        backgroundColor: incomeSeries.map((_, index) => index === currentIndex ? incomeGradient : 'rgba(79, 143, 103, 0.32)'),
+        borderRadius: 14,
+        borderSkipped: false,
+        maxBarThickness: 26,
+        order: 2
       },
       {
-        label: 'expenses',
-        data: evoData.length ? evoData.map(d => d.expenses) : [0],
-        backgroundColor: 'rgba(239,68,68,.75)',
-        borderRadius: 4
+        type: 'bar',
+        label: 'Despesas',
+        data: expenseSeries,
+        backgroundColor: expenseSeries.map((_, index) => index === currentIndex ? expenseGradient : 'rgba(212, 106, 100, 0.24)'),
+        borderRadius: 14,
+        borderSkipped: false,
+        maxBarThickness: 26,
+        order: 2
       },
+      {
+        type: 'line',
+        label: 'Saldo liquido',
+        data: balanceSeries,
+        borderColor: '#ea762f',
+        backgroundColor: 'rgba(234, 118, 47, 0.12)',
+        fill: false,
+        borderWidth: 3,
+        tension: 0.36,
+        pointRadius: balanceSeries.map((_, index) => index === currentIndex ? 5 : 3),
+        pointHoverRadius: 6,
+        pointBorderWidth: 0,
+        pointBackgroundColor: balanceSeries.map((_, index) => index === currentIndex ? '#ea762f' : '#f4b183'),
+        order: 1
+      }
     ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    animation: false,
-    plugins: { legend: { display: false }, tooltip: {
-      callbacks: { label: ctx => `R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
-    }},
+    interaction: {
+      mode: 'index',
+      intersect: false
+    },
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        backgroundColor: 'rgba(27, 33, 30, 0.94)',
+        titleColor: '#fff',
+        bodyColor: 'rgba(255,255,255,0.84)',
+        borderColor: 'rgba(255,255,255,0.10)',
+        borderWidth: 1,
+        padding: 14,
+        displayColors: true,
+        boxPadding: 6,
+        callbacks: {
+          label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`,
+          afterBody: (items) => {
+            if (!items || !items.length) return '';
+            const itemIndex = items[0].dataIndex;
+            return `Margem do mes: ${formatCurrency(balanceSeries[itemIndex])}`;
+          }
+        }
+      }
+    },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#555d72', font: { size: 11 } }, border: { display: false } },
+      x: {
+        grid: {
+          display: false
+        },
+        border: {
+          display: false
+        },
+        ticks: {
+          color: '#7c7164',
+          font: {
+            size: 11,
+            weight: 600
+          }
+        }
+      },
       y: {
         beginAtZero: true,
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: {
-          color: '#555d72', font: { size: 10 },
-          callback: v => v >= 1000 ? `R$ ${(v/1000).toFixed(0)}k` : `R$ ${v}`
+        grid: {
+          color: 'rgba(101, 83, 60, 0.09)',
+          drawBorder: false
         },
-        border: { display: false }
+        border: {
+          display: false
+        },
+        ticks: {
+          color: '#7c7164',
+          font: {
+            size: 10
+          },
+          callback: (value) => value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`
+        }
       }
     }
   }
 });
 
-// Donut chart
-new Chart(document.getElementById('donutChart'), {
-  type: 'doughnut',
-  data: {
-    labels: catData.length ? catData.map(c => c.name) : ['Sem dados'],
-    datasets: [{
-      data: catData.length ? catData.map(c => c.total) : [1],
-      backgroundColor: catData.length ? catData.map(c => c.color) : ['#d9cfbf'],
-      borderWidth: 0,
-      hoverOffset: 4
-    }]
-  },
-  options: {
-    cutout: '68%', responsive: true, maintainAspectRatio: true, animation: false,
-    plugins: { legend: { display: false }, tooltip: {
-      callbacks: { label: ctx => ` R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
-    }}
-  }
-});
+const donutCanvas = document.getElementById('donutChart');
+if (donutCanvas) {
+  new Chart(donutCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: catData.length ? catData.map((item) => item.name) : ['Sem dados'],
+      datasets: [{
+        data: catData.length ? catData.map((item) => item.total) : [1],
+        backgroundColor: catData.length ? catData.map((item) => item.color) : ['#d9cfbf'],
+        borderWidth: 0,
+        spacing: 4,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '72%',
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(27, 33, 30, 0.94)',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.84)',
+          borderColor: 'rgba(255,255,255,0.10)',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.raw)}`
+          }
+        }
+      }
+    }
+  });
+}
 </script>
 {% endblock %}

@@ -6,42 +6,42 @@
   <title>{% block title %}FinTrack Pro{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f5f3ef;
+      --bg: #f4f1ec;
       --bg2: #fffdf9;
-      --bg3: #f1ece4;
-      --bg4: #e7dfd2;
-      --sidebar: #2c2c34;
-      --sidebar-soft: #3a3a44;
-      --topbar: rgba(255, 253, 249, 0.92);
-      --border: #e8e0d4;
-      --border2: #d9cfbf;
-      --text: #2f2b27;
-      --text2: #6d655c;
-      --text3: #9b9184;
-      --accent: #e06c2f;
-      --accent2: #c95a20;
-      --green: #4f8f67;
+      --bg3: #f3ede4;
+      --bg4: #e7ddd0;
+      --sidebar: #19211d;
+      --sidebar-soft: #243028;
+      --topbar: rgba(244, 241, 236, 0.82);
+      --border: rgba(116, 94, 68, 0.12);
+      --border2: rgba(116, 94, 68, 0.18);
+      --text: #2a241e;
+      --text2: #6f6559;
+      --text3: #a09587;
+      --accent: #ea762f;
+      --accent2: #cb5f22;
+      --green: #5c8d72;
       --green-bg: rgba(79, 143, 103, 0.12);
-      --red: #d46a64;
+      --red: #cf756a;
       --red-bg: rgba(212, 106, 100, 0.12);
-      --amber: #c9923d;
+      --amber: #bb8e4f;
       --amber-bg: rgba(201, 146, 61, 0.14);
-      --blue: #5f84c9;
+      --blue: #5d7ea7;
       --blue-bg: rgba(95, 132, 201, 0.12);
-      --teal: #5e9d9a;
+      --teal: #6a978e;
       --teal-bg: rgba(94, 157, 154, 0.12);
-      --purple: #8d73b8;
+      --purple: #8574a5;
       --purple-bg: rgba(141, 115, 184, 0.12);
-      --font: 'Inter', 'DM Sans', sans-serif;
-      --mono: 'DM Mono', monospace;
-      --r: 10px;
-      --r2: 16px;
-      --sidebar-w: 236px;
-      --shadow-sm: 0 6px 16px rgba(72, 56, 36, 0.06);
-      --shadow-md: 0 12px 28px rgba(72, 56, 36, 0.08);
+      --font: 'Manrope', sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+      --r: 12px;
+      --r2: 20px;
+      --sidebar-w: 248px;
+      --shadow-sm: 0 12px 28px rgba(72, 56, 36, 0.06);
+      --shadow-md: 0 20px 42px rgba(72, 56, 36, 0.08);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { background: var(--bg); }
@@ -57,64 +57,89 @@
 
     /* SIDEBAR */
     .sidebar {
-      width: var(--sidebar-w); background: var(--sidebar); color: #f4f1ec;
-      border-right: 1px solid rgba(255,255,255,.05); display: flex; flex-direction: column;
-      flex-shrink: 0; overflow-y: auto; box-shadow: inset -1px 0 0 rgba(255,255,255,.04);
+      position: relative;
+      width: var(--sidebar-w);
+      background:
+        radial-gradient(circle at top, rgba(234,118,47,.14), transparent 30%),
+        linear-gradient(180deg, #1d2722 0%, #18201d 48%, #121816 100%);
+      color: #f4f1ec;
+      border-right: 1px solid rgba(255,255,255,.05);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+      box-shadow: inset -1px 0 0 rgba(255,255,255,.04);
     }
-    .logo { padding: 22px 18px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,.06); }
+    .sidebar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 18%, transparent 82%, rgba(255,255,255,.02));
+      pointer-events: none;
+    }
+    .logo {
+      padding: 24px 18px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      position: relative;
+      z-index: 1;
+    }
     .logo-icon {
-      width: 34px; height: 34px; background: linear-gradient(180deg, #eb7b40 0%, #d86124 100%);
-      border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px;
-      color: #fff; flex-shrink: 0; box-shadow: 0 8px 18px rgba(224,108,47,.24);
+      width: 38px; height: 38px; background: linear-gradient(180deg, #f08b49 0%, #d96524 100%);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px;
+      color: #fff; flex-shrink: 0; box-shadow: 0 12px 24px rgba(224,108,47,.24);
     }
-    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
-    .logo-sub { font-size: 10px; color: rgba(255,255,255,.46); letter-spacing: .12em; text-transform: uppercase; }
-    .sidebar-section { padding: 14px 10px 4px; }
-    .sidebar-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.35); letter-spacing: .12em; text-transform: uppercase; padding: 0 10px 8px; }
+    .logo-text { font-size: 16px; font-weight: 800; letter-spacing: -.02em; }
+    .logo-sub { font-size: 10px; color: rgba(255,255,255,.52); letter-spacing: .16em; text-transform: uppercase; }
+    .sidebar-section { padding: 14px 12px 4px; position: relative; z-index: 1; }
+    .sidebar-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.32); letter-spacing: .14em; text-transform: uppercase; padding: 0 12px 10px; }
     .nav-item {
-      display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
-      cursor: pointer; transition: all .15s ease; color: rgba(244,241,236,.76); font-size: 13px;
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px;
+      cursor: pointer; transition: all .18s ease; color: rgba(244,241,236,.76); font-size: 13px;
       text-decoration: none; margin-bottom: 2px;
     }
-    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; transform: translateX(2px); }
     .nav-item.active {
-      background: rgba(224,108,47,.17); color: #ffd5bf; font-weight: 600;
-      box-shadow: inset 0 0 0 1px rgba(224,108,47,.18);
+      background: linear-gradient(180deg, rgba(234,118,47,.18), rgba(234,118,47,.10));
+      color: #ffe4d3; font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(234,118,47,.22), 0 10px 20px rgba(7,11,10,.18);
     }
     .nav-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; opacity: .9; }
     .nav-badge { margin-left: auto; font-size: 10px; font-weight: 700; background: var(--red); color: #fff; padding: 2px 7px; border-radius: 999px; min-width: 18px; text-align: center; }
-    .sidebar-footer { margin-top: auto; padding: 14px 10px; border-top: 1px solid rgba(255,255,255,.06); }
-    .user-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: background .15s; text-decoration: none; }
-    .user-card:hover { background: rgba(255,255,255,.06); }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; background: rgba(224,108,47,.18); color: #ffd5bf; }
+    .sidebar-footer { margin-top: auto; padding: 16px 12px; border-top: 1px solid rgba(255,255,255,.06); position: relative; z-index: 1; }
+    .user-card { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; cursor: pointer; transition: background .15s; text-decoration: none; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); }
+    .user-card:hover { background: rgba(255,255,255,.07); }
+    .avatar { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; background: rgba(234,118,47,.18); color: #ffd5bf; }
     .user-name { font-size: 12px; font-weight: 600; color: #fff; }
-    .user-role { font-size: 10px; color: rgba(255,255,255,.44); }
+    .user-role { font-size: 10px; color: rgba(255,255,255,.50); }
 
     /* MAIN */
     .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
     .topbar {
-      height: 62px; background: var(--topbar); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+      height: 74px; background: var(--topbar); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
       display: flex; align-items: center; padding: 0 28px; gap: 16px; flex-shrink: 0;
     }
-    .topbar-title { font-size: 18px; font-weight: 700; flex: 1; letter-spacing: -.01em; }
+    .topbar-title { font-size: 20px; font-weight: 800; flex: 1; letter-spacing: -.02em; }
     .month-nav { display: flex; align-items: center; gap: 6px; }
     .month-btn {
-      width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px;
-      border: 1px solid var(--border2); color: var(--text2); cursor: pointer; background: var(--bg2); transition: all .15s; font-size: 12px;
+      width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 10px;
+      border: 1px solid var(--border2); color: var(--text2); cursor: pointer; background: rgba(255,255,255,.68); transition: all .15s; font-size: 12px;
     }
     .month-btn:hover { background: var(--bg3); color: var(--text); border-color: #ccbda8; }
     .month-label {
-      padding: 6px 13px; border-radius: 9px; border: 1px solid var(--border2); font-size: 12px; font-weight: 600;
-      min-width: 132px; text-align: center; background: var(--bg2); cursor: default; color: var(--text2);
+      padding: 8px 14px; border-radius: 11px; border: 1px solid var(--border2); font-size: 12px; font-weight: 700;
+      min-width: 132px; text-align: center; background: rgba(255,255,255,.68); cursor: default; color: var(--text2);
     }
-    .content { flex: 1; overflow-y: auto; padding: 24px 28px 28px; }
+    .content { flex: 1; overflow-y: auto; padding: 28px; }
 
     /* CARDS */
     .card, .kpi-card, .goal-card, .account-card {
       background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r2); padding: 18px; box-shadow: var(--shadow-sm);
     }
-    .card:hover, .kpi-card:hover, .goal-card:hover, .account-card:hover { border-color: #d3c5b2; box-shadow: var(--shadow-md); }
-    .card-title, .section-title { font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
+    .card:hover, .kpi-card:hover, .goal-card:hover, .account-card:hover { border-color: rgba(116, 94, 68, 0.20); box-shadow: var(--shadow-md); }
+    .card-title, .section-title { font-size: 14px; font-weight: 800; letter-spacing: -.01em; }
     .card-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
     .kpi-card { position: relative; overflow: hidden; }
     .kpi-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 999px; }
@@ -126,12 +151,12 @@
 
     /* BUTTONS */
     .btn {
-      display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px; border: none; cursor: pointer;
-      font-family: var(--font); font-size: 12px; font-weight: 700; transition: all .15s; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px; padding: 10px 15px; border-radius: 12px; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 12px; font-weight: 800; transition: all .15s; text-decoration: none;
     }
-    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 10px 18px rgba(224,108,47,.18); }
-    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
-    .btn-ghost { background: var(--bg2); color: var(--text2); border: 1px solid var(--border2); }
+    .btn-primary { background: linear-gradient(180deg, #ee8646 0%, var(--accent) 100%); color: #fff; box-shadow: 0 14px 24px rgba(234,118,47,.20); }
+    .btn-primary:hover { background: linear-gradient(180deg, #ec7d39 0%, var(--accent2) 100%); transform: translateY(-1px); }
+    .btn-ghost { background: rgba(255,255,255,.66); color: var(--text2); border: 1px solid var(--border2); }
     .btn-ghost:hover { background: var(--bg3); color: var(--text); border-color: #ccbda8; }
     .btn-danger { background: var(--red-bg); border: 1px solid rgba(212,106,100,.28); color: var(--red); }
 
@@ -285,7 +310,7 @@
     <div class="logo-icon">💰</div>
     <div>
       <div class="logo-text">FinTrack</div>
-      <div class="logo-sub">Pro</div>
+      <div class="logo-sub">SilentFlow OS</div>
     </div>
   </div>
 
@@ -328,7 +353,7 @@
         <div class="user-role">Pessoal + Família</div>
       </div>
     </div>
-    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px;font-size:11px">Sair</a>
+    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);color:#f4f1ec">Sair</a>
   </div>
 </nav>
 
@@ -823,6 +848,3 @@ function changeMonth(dir) {
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
-
-
-

@@ -50,6 +50,20 @@ def _parse_month(value: str | None) -> date:
         ) from exc
 
 
+def _attach_family_group_id(client, user_id: str, payload: dict) -> dict:
+    scope = payload.get("scope")
+    if hasattr(scope, "value"):
+        scope = scope.value
+    if scope != "shared":
+        return payload
+    if payload.get("family_group_id"):
+        return payload
+    group = db.get_family_group(client, user_id)
+    if group:
+        payload["family_group_id"] = group["id"]
+    return payload
+
+
 # ---- TRANSACTIONS ------------------------------------------
 
 @router.get("/transactions")
@@ -82,7 +96,7 @@ async def api_create_transaction(
     user:    dict = Depends(get_current_user),
 ):
     client = get_authed_client(request)
-    data   = payload.model_dump()
+    data   = _attach_family_group_id(client, user["id"], payload.model_dump())
     installment_total = payload.installment_total or payload.total_installments
     try:
         if payload.is_installment and installment_total and installment_total > 1:
@@ -105,6 +119,7 @@ async def api_update_transaction(
     user:    dict = Depends(get_current_user),
 ):
     client = get_authed_client(request)
+    payload = _attach_family_group_id(client, user["id"], payload)
     result = db.update_transaction(client, id_, user["id"], payload)
     return JSONResponse(result)
 

@@ -2,62 +2,163 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criar conta — FinTrack Pro</title>
+  <title>Criar conta - FinTrack Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f5f3ef;--card:#fffdf9;--soft:#f1ece4;--border:#e8e0d4;--border2:#d9cfbf;--text:#2f2b27;--text2:#6d655c;--text3:#9b9184;--accent:#e06c2f;--accent2:#c95a20;--green:#4f8f67;--red:#d46a64;--shadow:0 20px 42px rgba(72,56,36,.10)}
+    :root{
+      --bg:#f3f1ed;
+      --panel-dark-1:#262533;
+      --panel-dark-2:#2d2c39;
+      --panel-dark-3:#34323f;
+      --panel-light:#f7f5f2;
+      --accent:#ea762f;
+      --accent-2:#d86626;
+      --text:#1f1f24;
+      --text-soft:#6f6b68;
+      --text-light:#f3efe9;
+      --border:#e2ddd6;
+      --border-dark:rgba(255,255,255,.08);
+      --shadow:0 24px 60px rgba(34,30,24,.12);
+    }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',sans-serif;background:radial-gradient(circle at top,#faf7f2 0%,var(--bg) 60%);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:32px;width:100%;max-width:420px;box-shadow:var(--shadow)}
-    .logo{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:24px}.logo-icon{width:42px;height:42px;background:linear-gradient(180deg,#eb7b40 0%,#d86124 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff}
-    label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}.fg{margin-bottom:14px}
-    input{width:100%;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:11px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .15s, box-shadow .15s}
-    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,108,47,.12)} input::placeholder{color:var(--text3)}
-    .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;background:var(--accent);color:#fff;margin-top:8px;transition:background .15s, transform .15s;box-shadow:0 12px 20px rgba(224,108,47,.18)}
-    .btn:hover{background:var(--accent2);transform:translateY(-1px)}
-    .error{background:rgba(212,106,100,.10);border:1px solid rgba(212,106,100,.24);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--red);margin-bottom:14px}
-    .success-box{background:rgba(79,143,103,.08);border:1px solid rgba(79,143,103,.24);border-radius:16px;padding:18px;text-align:center}
-    .footer{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:13px;color:var(--text2)} .footer a{color:var(--accent2);text-decoration:none;font-weight:600}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .auth-shell{width:100%;max-width:1180px;background:var(--panel-light);border-radius:32px;box-shadow:var(--shadow);display:grid;grid-template-columns:1.05fr .95fr;overflow:hidden;border:1px solid var(--border)}
+    .auth-left{padding:48px 48px 52px;background:linear-gradient(135deg,var(--panel-dark-1) 0%,var(--panel-dark-2) 50%,var(--panel-dark-3) 100%);color:var(--text-light);position:relative}
+    .brand{display:flex;align-items:center;gap:14px;margin-bottom:34px}
+    .brand-icon{width:44px;height:44px;border-radius:14px;background:linear-gradient(180deg,#f08a4a 0%,var(--accent) 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+    .brand-title{font-size:20px;font-weight:700}
+    .brand-sub{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-top:4px}
+    .left-title{font-size:32px;line-height:1.12;font-weight:700;max-width:360px;margin-bottom:12px}
+    .left-sub{font-size:14px;line-height:1.6;color:rgba(255,255,255,.7);max-width:420px;margin-bottom:26px}
+    .info-list{display:grid;gap:12px;margin-bottom:28px}
+    .info-card{display:flex;gap:12px;padding:14px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid var(--border-dark)}
+    .info-icon{width:36px;height:36px;border-radius:12px;background:rgba(234,118,47,.16);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:12px}
+    .info-title{font-size:13px;font-weight:600}
+    .info-text{font-size:12px;color:rgba(255,255,255,.62);margin-top:4px}
+    .mini-dashboard{margin-top:6px;border-radius:20px;padding:16px;background:rgba(255,255,255,.04);border:1px solid var(--border-dark);display:grid;gap:10px}
+    .mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .mini-tile{border-radius:14px;background:rgba(255,255,255,.06);border:1px solid var(--border-dark);padding:12px}
+    .mini-title{font-size:12px;color:rgba(255,255,255,.7)}
+    .mini-value{font-size:16px;font-weight:600;margin-top:8px}
+    .orb{position:absolute;width:220px;height:220px;border-radius:50%;right:-90px;bottom:-110px;background:radial-gradient(circle at 30% 30%,rgba(234,118,47,.28),rgba(234,118,47,0));}
+    .auth-right{padding:48px 48px 52px;background:var(--panel-light)}
+    .form-title{font-size:26px;font-weight:700;margin-bottom:6px}
+    .form-sub{font-size:14px;color:var(--text-soft);margin-bottom:22px}
+    label{display:block;font-size:11px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+    .field{margin-bottom:16px}
+    input{width:100%;height:54px;border-radius:14px;border:1px solid var(--border);background:#f1f0ee;padding:0 14px;font-size:14px;font-family:inherit;color:var(--text);outline:none;transition:border-color .15s, box-shadow .15s}
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(234,118,47,.18)}
+    .btn{width:100%;height:54px;border-radius:14px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;transition:background .15s, transform .15s;box-shadow:0 14px 24px rgba(234,118,47,.2)}
+    .btn:hover{background:var(--accent-2);transform:translateY(-1px)}
+    .link{color:var(--accent-2);text-decoration:none;font-weight:600;font-size:13px}
+    .link:hover{text-decoration:underline}
+    .error{background:rgba(212,106,100,.12);border:1px solid rgba(212,106,100,.28);color:#9a3f3a;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:16px}
+    .success{background:rgba(79,143,103,.12);border:1px solid rgba(79,143,103,.28);color:#2f6a45;padding:16px;border-radius:16px;font-size:13px;text-align:center}
+    .footer{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-soft);text-align:center}
+    @media (max-width: 980px){
+      .auth-shell{grid-template-columns:1fr}
+      .auth-left{padding:40px 32px}
+      .auth-right{padding:40px 32px}
+    }
   </style>
 </head>
 <body>
-<div class="card">
-  <div class="logo">
-    <div class="logo-icon">💰</div>
-    <div>
-      <div style="font-size:18px;font-weight:700">FinTrack</div>
-      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-top:-2px">Conta pessoal</div>
-    </div>
+  <div class="auth-shell">
+    <section class="auth-left">
+      <div class="brand">
+        <div class="brand-icon">FT</div>
+        <div>
+          <div class="brand-title">FinTrack</div>
+          <div class="brand-sub">CONTROLE SEM ESFORCO</div>
+        </div>
+      </div>
+      <div class="left-title">Comece com estrutura,<br>nao no improviso.</div>
+      <div class="left-sub">Centralize contas, metas e transacoes em um fluxo simples, confiavel e pronto para evoluir com voce.</div>
+      <div class="info-list">
+        <div class="info-card">
+          <div class="info-icon">01</div>
+          <div>
+            <div class="info-title">Tudo em um so lugar</div>
+            <div class="info-text">Contas, metas e gastos organizados.</div>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">02</div>
+          <div>
+            <div class="info-title">Base confiavel</div>
+            <div class="info-text">Estrutura clara desde o primeiro acesso.</div>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">03</div>
+          <div>
+            <div class="info-title">Pronto para crescer</div>
+            <div class="info-text">Do controle basico a automacao.</div>
+          </div>
+        </div>
+      </div>
+      <div class="mini-dashboard">
+        <div class="mini-grid">
+          <div class="mini-tile">
+            <div class="mini-title">Metas criadas</div>
+            <div class="mini-value">6</div>
+          </div>
+          <div class="mini-tile">
+            <div class="mini-title">Contas ativas</div>
+            <div class="mini-value">3</div>
+          </div>
+          <div class="mini-tile">
+            <div class="mini-title">Visao mensal</div>
+            <div class="mini-value">Ok</div>
+          </div>
+          <div class="mini-tile">
+            <div class="mini-title">Rotina pronta</div>
+            <div class="mini-value">100%</div>
+          </div>
+        </div>
+      </div>
+      <div class="orb"></div>
+    </section>
+    <section class="auth-right">
+      {% if success %}
+      <div class="form-title">Crie sua conta</div>
+      <div class="form-sub">Comece a organizar sua vida financeira com clareza.</div>
+      <div class="success">
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Verifique seu email</div>
+        <div>Enviamos um link de confirmacao para <strong style="color:var(--text)">{{ email }}</strong>.</div>
+        <div style="margin-top:14px"><a class="link" href="/auth/login">Ir para o login</a></div>
+      </div>
+      {% else %}
+      <div class="form-title">Crie sua conta</div>
+      <div class="form-sub">Comece a organizar sua vida financeira com clareza.</div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/auth/register">
+        <div class="field">
+          <label>Nome completo</label>
+          <input type="text" name="full_name" placeholder="Joao Silva" required>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="seu@email.com" required>
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" name="password" placeholder="Minimo 6 caracteres" required>
+        </div>
+        <div class="field">
+          <label>Confirmar senha</label>
+          <input type="password" name="confirm" placeholder="Repita a senha" required>
+        </div>
+        <button type="submit" class="btn">Criar conta</button>
+      </form>
+      <div class="footer">
+        Ja tem conta? <a class="link" href="/auth/login">Entrar</a>
+      </div>
+      {% endif %}
+    </section>
   </div>
-
-  {% if success %}
-  <div class="success-box">
-    <div style="font-size:32px;margin-bottom:10px">📧</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Verifique seu email</div>
-    <div style="font-size:13px;color:var(--text2)">Enviamos um link de confirmação para <strong style="color:var(--text)">{{ email }}</strong>.</div>
-    <a href="/auth/login" class="btn" style="margin-top:16px">Ir para o login</a>
-  </div>
-  {% else %}
-  <h1 style="font-size:24px;font-weight:700;margin-bottom:4px;letter-spacing:-.02em">Criar conta</h1>
-  <div style="font-size:13px;color:var(--text2);margin-bottom:18px">Comece a controlar suas finanças com uma interface limpa e rápida.</div>
-
-  {% if error %}
-  <div class="error">{{ error }}</div>
-  {% endif %}
-
-  <form method="post" action="/auth/register">
-    <div class="fg"><label>Nome completo</label><input type="text" name="full_name" placeholder="João Silva" required /></div>
-    <div class="fg"><label>Email</label><input type="email" name="email" placeholder="seu@email.com" required /></div>
-    <div class="fg"><label>Senha</label><input type="password" name="password" placeholder="Mínimo 6 caracteres" required /></div>
-    <div class="fg"><label>Confirmar senha</label><input type="password" name="confirm" placeholder="Repita a senha" required /></div>
-    <button type="submit" class="btn">Criar conta</button>
-  </form>
-
-  <div class="footer">
-    Já tem conta? <a href="/auth/login">Fazer login</a>
-  </div>
-  {% endif %}
-</div>
 </body>
 </html>
