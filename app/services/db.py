@@ -70,6 +70,10 @@ def _is_permission_error(exc: Exception) -> bool:
     )
 
 
+def _is_invalid_integer_syntax_error(exc: Exception) -> bool:
+    return "invalid input syntax for type integer" in str(exc or "").lower()
+
+
 def _insert_transactions_with_schema_fallback(client: Client, payload: dict | list[dict]):
     current_payload = payload
     while True:
@@ -96,14 +100,72 @@ def _update_transaction_with_schema_fallback(
     current_payload = dict(payload or {})
     while True:
         try:
-            return (
+            (
                 client.table("transactions")
                 .update(current_payload)
                 .eq("id", id_)
                 .eq("user_id", user_id)
-                .select("*")
                 .execute()
             )
+            return (
+                client.table("transactions")
+                .select("*")
+                .eq("id", id_)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if not missing_col:
+                raise
+            current_payload = {
+                k: v for k, v in current_payload.items() if k != missing_col
+            }
+            if not current_payload:
+                raise
+
+
+def _insert_card_invoice_with_schema_fallback(client: Client, payload: dict):
+    current_payload = dict(payload or {})
+    while True:
+        try:
+            return client.table("card_invoices").insert(current_payload).execute()
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if not missing_col:
+                raise
+            current_payload = {
+                k: v for k, v in current_payload.items() if k != missing_col
+            }
+            if not current_payload:
+                raise
+
+
+def _update_card_invoice_with_schema_fallback(
+    client: Client, invoice_id: str, payload: dict, user_id: str | None = None
+):
+    current_payload = dict(payload or {})
+    while True:
+        try:
+            update_query = (
+                client.table("card_invoices")
+                .update(current_payload)
+                .eq("id", invoice_id)
+            )
+            if user_id:
+                update_query = update_query.eq("user_id", user_id)
+            update_query.execute()
+
+            read_query = (
+                client.table("card_invoices")
+                .select("*")
+                .eq("id", invoice_id)
+                .limit(1)
+            )
+            if user_id:
+                read_query = read_query.eq("user_id", user_id)
+            return read_query.execute()
         except Exception as exc:
             missing_col = _extract_missing_column_from_error(exc)
             if not missing_col:
@@ -342,14 +404,29 @@ def _ensure_invoice(client: Client, user_id: str, card: dict, tx_date: date) -> 
         reference_month = _shift_month(reference_month, 1)
 
     reference_iso = reference_month.isoformat()
-    existing = (
-        client.table("card_invoices")
-        .select("*")
-        .eq(card_field, card["id"])
-        .eq("reference_month", reference_iso)
-        .maybe_single()
-        .execute()
-    )
+    reference_int = reference_month.year * 100 + reference_month.month
+    reference_value = reference_iso
+    try:
+        existing = (
+            client.table("card_invoices")
+            .select("*")
+            .eq(card_field, card["id"])
+            .eq("reference_month", reference_iso)
+            .maybe_single()
+            .execute()
+        )
+    except Exception as exc:
+        if not _is_invalid_integer_syntax_error(exc):
+            raise
+        reference_value = reference_int
+        existing = (
+            client.table("card_invoices")
+            .select("*")
+            .eq(card_field, card["id"])
+            .eq("reference_month", reference_int)
+            .maybe_single()
+            .execute()
+        )
     if existing and existing.data:
         return existing.data
 
@@ -358,15 +435,23 @@ def _ensure_invoice(client: Client, user_id: str, card: dict, tx_date: date) -> 
     record = {
         "user_id": user_id,
         card_field: card["id"],
-        "reference_month": reference_iso,
+        "reference_month": reference_value,
         "closing_date": closing_date.isoformat(),
         "due_date": due_date_value.isoformat(),
         "total_amount": 0.0,
         "paid_amount": 0.0,
         "status": "open",
     }
-    resp = client.table("card_invoices").insert(record).execute()
-    return resp.data[0] if resp.data else record
+    try:
+        resp = _insert_card_invoice_with_schema_fallback(client, record)
+        return resp.data[0] if resp.data else record
+    except Exception as exc:
+        if not _is_invalid_integer_syntax_error(exc):
+            raise
+        # Legacy schema fallback: reference_month stored as integer (YYYYMM).
+        legacy = {**record, "reference_month": reference_int}
+        resp = _insert_card_invoice_with_schema_fallback(client, legacy)
+        return resp.data[0] if resp.data else legacy
 
 
 def _refresh_card_available_limit(client: Client, card: dict, invoice: dict) -> None:
@@ -400,21 +485,26 @@ def _add_transaction_to_invoice(client: Client, user_id: str, tx_record: dict) -
     invoice = _ensure_invoice(client, user_id, card, tx_date)
     new_total = round(float(invoice.get("total_amount") or 0) + float(tx_record["amount"] or 0), 2)
     new_status = _invoice_status(new_total, invoice.get("paid_amount"), invoice.get("due_date"))
-    resp = (
-        client.table("card_invoices")
-        .update({"total_amount": new_total, "status": new_status})
-        .eq("id", invoice["id"])
-        .select("*")
-        .execute()
+    resp = _update_card_invoice_with_schema_fallback(
+        client,
+        invoice["id"],
+        {"total_amount": new_total, "status": new_status},
     )
     updated_invoice = resp.data[0] if resp.data else {**invoice, "total_amount": new_total, "status": new_status}
     _refresh_card_available_limit(client, card, updated_invoice)
-    tx_resp = (
+    (
         client.table("transactions")
         .update({"invoice_id": updated_invoice["id"]})
         .eq("id", tx_record["id"])
         .eq("user_id", user_id)
+        .execute()
+    )
+    tx_resp = (
+        client.table("transactions")
         .select("*")
+        .eq("id", tx_record["id"])
+        .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
     return tx_resp.data[0] if tx_resp.data else {**tx_record, "invoice_id": updated_invoice["id"]}
@@ -683,13 +773,11 @@ def pay_invoice(
     paid_amount = round(float(invoice.get("paid_amount") or 0) + payment_amount, 2)
     total_amount = float(invoice.get("total_amount") or 0)
     status = _invoice_status(total_amount, paid_amount, invoice.get("due_date"))
-    resp = (
-        client.table("card_invoices")
-        .update({"paid_amount": paid_amount, "status": status})
-        .eq("id", invoice_id)
-        .eq("user_id", user_id)
-        .select("*")
-        .execute()
+    resp = _update_card_invoice_with_schema_fallback(
+        client,
+        invoice_id,
+        {"paid_amount": paid_amount, "status": status},
+        user_id=user_id,
     )
     updated = resp.data[0] if resp.data else {**invoice, "paid_amount": paid_amount, "status": status}
 
