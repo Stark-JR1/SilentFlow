@@ -92,6 +92,8 @@ create table if not exists public.user_behavior_profile (
     recurring_transactions_count integer default 0,
     active_months_count integer default 0,
     top_category_id uuid references public.categories(id),
+    most_used_account_id uuid null,
+    most_used_card_id uuid null,
     top_category_share decimal(5,2) default 0,
     created_at timestamptz default now(),
     updated_at timestamptz default now()
@@ -147,6 +149,10 @@ alter table public.transaction_learning_rules
     add column if not exists source_type text not null default 'manual',
     add column if not exists updated_at timestamptz not null default now();
 
+alter table public.user_behavior_profile
+    add column if not exists most_used_account_id uuid null,
+    add column if not exists most_used_card_id uuid null;
+
 update public.transaction_learning_rules
 set transaction_type = 'expense'
 where transaction_type is null;
@@ -189,6 +195,12 @@ create index if not exists idx_tlr_user_active
 
 create index if not exists idx_user_behavior_profile_user_id
   on public.user_behavior_profile(user_id);
+
+create index if not exists idx_user_behavior_profile_most_used_account_id
+  on public.user_behavior_profile(most_used_account_id);
+
+create index if not exists idx_user_behavior_profile_most_used_card_id
+  on public.user_behavior_profile(most_used_card_id);
 
 create index if not exists idx_user_category_behavior_user_id
   on public.user_category_behavior(user_id);

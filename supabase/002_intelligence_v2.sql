@@ -13,10 +13,16 @@ CREATE TABLE IF NOT EXISTS user_behavior_profile (
     recurring_transactions_count INTEGER DEFAULT 0,
     active_months_count INTEGER DEFAULT 0,
     top_category_id UUID REFERENCES categories(id),
+    most_used_account_id UUID,
+    most_used_card_id UUID,
     top_category_share DECIMAL(5,2) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE user_behavior_profile
+    ADD COLUMN IF NOT EXISTS most_used_account_id UUID,
+    ADD COLUMN IF NOT EXISTS most_used_card_id UUID;
 
 -- User Category Behavior table
 -- Stores detailed category usage patterns per user
@@ -83,6 +89,8 @@ $$;
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_user_behavior_profile_user_id ON user_behavior_profile(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_behavior_profile_most_used_account_id ON user_behavior_profile(most_used_account_id);
+CREATE INDEX IF NOT EXISTS idx_user_behavior_profile_most_used_card_id ON user_behavior_profile(most_used_card_id);
 CREATE INDEX IF NOT EXISTS idx_user_category_behavior_user_id ON user_category_behavior(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_category_behavior_category_id ON user_category_behavior(category_id);
 CREATE INDEX IF NOT EXISTS idx_intelligence_alerts_user_id ON intelligence_alerts(user_id);
@@ -97,34 +105,133 @@ ALTER TABLE user_category_behavior ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intelligence_alerts ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for user_behavior_profile
-CREATE POLICY "Users can view their own behavior profile" ON user_behavior_profile
-    FOR SELECT USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'user_behavior_profile'
+          AND policyname = 'Users can view their own behavior profile'
+    ) THEN
+        CREATE POLICY "Users can view their own behavior profile" ON user_behavior_profile
+            FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
-CREATE POLICY "Users can insert their own behavior profile" ON user_behavior_profile
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'user_behavior_profile'
+          AND policyname = 'Users can insert their own behavior profile'
+    ) THEN
+        CREATE POLICY "Users can insert their own behavior profile" ON user_behavior_profile
+            FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
-CREATE POLICY "Users can update their own behavior profile" ON user_behavior_profile
-    FOR UPDATE USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'user_behavior_profile'
+          AND policyname = 'Users can update their own behavior profile'
+    ) THEN
+        CREATE POLICY "Users can update their own behavior profile" ON user_behavior_profile
+            FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
 -- RLS policies for user_category_behavior
-CREATE POLICY "Users can view their own category behavior" ON user_category_behavior
-    FOR SELECT USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'user_category_behavior'
+          AND policyname = 'Users can view their own category behavior'
+    ) THEN
+        CREATE POLICY "Users can view their own category behavior" ON user_category_behavior
+            FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
-CREATE POLICY "Users can insert their own category behavior" ON user_category_behavior
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'user_category_behavior'
+          AND policyname = 'Users can insert their own category behavior'
+    ) THEN
+        CREATE POLICY "Users can insert their own category behavior" ON user_category_behavior
+            FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
-CREATE POLICY "Users can update their own category behavior" ON user_category_behavior
-    FOR UPDATE USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'user_category_behavior'
+          AND policyname = 'Users can update their own category behavior'
+    ) THEN
+        CREATE POLICY "Users can update their own category behavior" ON user_category_behavior
+            FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
 -- RLS policies for intelligence_alerts
-CREATE POLICY "Users can view their own alerts" ON intelligence_alerts
-    FOR SELECT USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'intelligence_alerts'
+          AND policyname = 'Users can view their own alerts'
+    ) THEN
+        CREATE POLICY "Users can view their own alerts" ON intelligence_alerts
+            FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
-CREATE POLICY "Users can insert their own alerts" ON intelligence_alerts
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'intelligence_alerts'
+          AND policyname = 'Users can insert their own alerts'
+    ) THEN
+        CREATE POLICY "Users can insert their own alerts" ON intelligence_alerts
+            FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
-CREATE POLICY "Users can update their own alerts" ON intelligence_alerts
-    FOR UPDATE USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'intelligence_alerts'
+          AND policyname = 'Users can update their own alerts'
+    ) THEN
+        CREATE POLICY "Users can update their own alerts" ON intelligence_alerts
+            FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -136,10 +243,12 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_user_behavior_profile_updated_at ON user_behavior_profile;
 CREATE TRIGGER update_user_behavior_profile_updated_at
     BEFORE UPDATE ON user_behavior_profile
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_category_behavior_updated_at ON user_category_behavior;
 CREATE TRIGGER update_user_category_behavior_updated_at
     BEFORE UPDATE ON user_category_behavior
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

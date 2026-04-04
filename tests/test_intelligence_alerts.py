@@ -101,3 +101,31 @@ def test_generate_alerts_empty_data():
     )
 
     assert len(alerts) == 0
+
+
+def test_build_user_behavior_profile_counts_month_with_transfer_as_active():
+    transactions = [
+        {
+            "date": "2024-01-10",
+            "amount": 1200.00,
+            "type": "income",
+            "category_id": "cat-income",
+            "account_id": "acc-1",
+            "card_id": None,
+        },
+        {
+            "date": "2024-02-05",
+            "amount": 300.00,
+            "type": "transfer",
+            "category_id": None,
+            "account_id": "acc-1",
+            "card_id": None,
+        },
+    ]
+
+    profile = build_user_behavior_profile(transactions)
+
+    assert profile["active_months_count"] == 2
+    assert profile["avg_monthly_income"] == 600.00
+    assert profile["avg_monthly_expense"] == 0.00
+    assert profile["avg_monthly_savings"] == 600.00

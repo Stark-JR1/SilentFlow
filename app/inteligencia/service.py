@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 from postgrest.exceptions import APIError
@@ -140,6 +141,44 @@ def _is_missing_column_error(exc: APIError, column_name: str) -> bool:
     )
 
 
+def _extract_missing_column(exc: APIError) -> str | None:
+    payload = _extract_api_error_payload(exc)
+    message = " ".join([
+        str(payload.get("message") or ""),
+        str(payload.get("details") or ""),
+        str(payload.get("hint") or ""),
+        str(exc),
+    ])
+    patterns = [
+        r"Could not find the '([^']+)' column",
+        r"column\\s+([a-zA-Z0-9_.]+)\\s+does not exist",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, message, flags=re.IGNORECASE)
+        if not match:
+            continue
+        col = match.group(1)
+        if "." in col:
+            col = col.split(".")[-1]
+        return col
+    return None
+
+
+def _upsert_user_behavior_profile_with_schema_fallback(client, payload: dict):
+    current_payload = dict(payload or {})
+    while True:
+        try:
+            return client.table("user_behavior_profile").upsert(current_payload).execute()
+        except APIError as exc:
+            missing_col = _extract_missing_column(exc)
+            if not missing_col:
+                raise
+            # Keep fallback until all environments apply the latest schema migration.
+            current_payload.pop(missing_col, None)
+            if not current_payload:
+                raise
+
+
 def _update_alert_flags(client, user_id: str, alert_id: str, flags: dict) -> dict:
     update_with_timestamp = {**flags, "updated_at": _utcnow_iso()}
 
@@ -214,6 +253,48 @@ def _attach_profile_display_fields(client, profile: dict | None) -> dict | None:
         raise
 
     return enriched
+
+
+def _fetch_profile_transactions(client, user_id: str) -> list[dict]:
+    """Fetch transactions for profile KPIs with compatibility fallbacks.
+
+    TODO: apply global context filter (personal/shared/family) when page context is exposed.
+    """
+    select_variants = [
+        "date, amount, type, category_id, account_id, card_id, deleted_at, status, scope",
+        "date, amount, type, category_id, account_id, card_id, deleted_at, status",
+        "date, amount, type, category_id, account_id, card_id, deleted_at",
+        "date, amount, type, category_id, account_id, card_id",
+    ]
+
+    rows: list[dict] = []
+    for fields in select_variants:
+        try:
+            resp = (
+                client.table("transactions")
+                .select(fields)
+                .eq("user_id", user_id)
+                .order("date", desc=True)
+                .execute()
+            )
+            rows = resp.data or []
+            break
+        except APIError as exc:
+            if _is_nonfatal_intelligence_error(exc):
+                continue
+            raise
+
+    normalized: list[dict] = []
+    for tx in rows:
+        if tx.get("deleted_at") not in (None, ""):
+            continue
+        status = str(tx.get("status") or "").strip().lower()
+        if status == "cancelled":
+            continue
+        if not tx.get("date"):
+            continue
+        normalized.append(tx)
+    return normalized
 
 
 def _hydrate_rule(rule: dict) -> dict:
@@ -626,41 +707,44 @@ def toggle_rule_active(client, user_id: str, rule_id: str) -> dict:
 
 def get_user_profile(client, user_id: str) -> dict | None:
     """Get user's consolidated behavior profile."""
+    try:
+        rebuilt = build_and_store_user_profile(client, user_id)
+        if rebuilt:
+            return _attach_profile_display_fields(client, rebuilt)
+    except APIError as exc:
+        if _is_nonfatal_intelligence_error(exc):
+            logging.warning(f"Intelligence fallback: failed rebuilding user profile - {exc}")
+        else:
+            raise
+
     profile = _safe_maybe_single(
         lambda: client.table("user_behavior_profile")
         .select("*")
         .eq("user_id", user_id)
     )
-    if profile and not _is_profile_stale(profile):
+    if profile:
         return _attach_profile_display_fields(client, profile)
 
-    if profile:
-        logging.warning("Intelligence profile rebuild: stale profile detected for user %s", user_id)
-
-    try:
-        rebuilt = build_and_store_user_profile(client, user_id)
-        return _attach_profile_display_fields(client, rebuilt or profile)
-    except APIError as exc:
-        if _is_nonfatal_intelligence_error(exc):
-            logging.warning(f"Intelligence fallback: user profile not available - {exc}")
-            return profile
-        raise
+    return {
+        "avg_monthly_income": 0,
+        "avg_monthly_expense": 0,
+        "avg_monthly_savings": 0,
+        "avg_transaction_value": 0,
+        "recurring_transactions_count": 0,
+        "active_months_count": 0,
+        "top_category_id": None,
+        "top_category_name": None,
+        "top_category_share": 0,
+        "most_used_account_id": None,
+        "most_used_card_id": None,
+    }
 
 
 def build_and_store_user_profile(client, user_id: str) -> dict | None:
     """Build user behavior profile from transaction history and store it."""
     from app.intelligence.profile import build_user_behavior_profile
 
-    transactions = _safe_select_list(
-        lambda: client.table("transactions")
-        .select("date, amount, type, category_id, account_id, card_id")
-        .eq("user_id", user_id)
-        .order("date", desc=True)
-    )
-
-    if not transactions:
-        return None
-
+    transactions = _fetch_profile_transactions(client, user_id)
     profile_data = build_user_behavior_profile(transactions)
     record = {
         **profile_data,
@@ -669,9 +753,9 @@ def build_and_store_user_profile(client, user_id: str) -> dict | None:
     }
 
     try:
-        resp = client.table("user_behavior_profile").upsert(record).execute()
+        resp = _upsert_user_behavior_profile_with_schema_fallback(client, record)
         stored = (resp.data or [None])[0]
-        return _attach_profile_display_fields(client, stored)
+        return _attach_profile_display_fields(client, stored or profile_data)
     except APIError as exc:
         if _is_nonfatal_intelligence_error(exc):
             logging.warning(f"Intelligence fallback: failed to store user profile - {exc}")

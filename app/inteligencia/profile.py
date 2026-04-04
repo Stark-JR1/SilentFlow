@@ -31,6 +31,7 @@ def build_user_behavior_profile(transactions: list[dict]) -> dict:
     account_counter = Counter()
     card_counter = Counter()
     values = []
+    active_months = set()
 
     for tx in transactions:
         tx_date = tx.get("date")
@@ -43,6 +44,7 @@ def build_user_behavior_profile(transactions: list[dict]) -> dict:
         account_id = tx.get("account_id")
         card_id = tx.get("card_id")
 
+        active_months.add(ref)
         values.append(abs(amount))
 
         if tx_type == "income":
@@ -59,7 +61,7 @@ def build_user_behavior_profile(transactions: list[dict]) -> dict:
         if card_id:
             card_counter[card_id] += 1
 
-    months = sorted(set(monthly_income.keys()) | set(monthly_expense.keys()))
+    months = sorted(active_months)
     avg_income = mean(monthly_income[m] for m in months) if months else 0
     avg_expense = mean(monthly_expense[m] for m in months) if months else 0
     avg_savings = avg_income - avg_expense

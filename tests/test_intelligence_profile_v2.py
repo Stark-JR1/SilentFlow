@@ -32,6 +32,9 @@ class QueryStub:
         self._maybe_single = True
         return self
 
+    def limit(self, _value):
+        return self
+
     def upsert(self, payload):
         self._upsert_payload = payload
         return self
@@ -73,6 +76,7 @@ class ClientStub:
 def test_get_user_profile_builds_and_persists_when_missing():
     state = {
         "user_behavior_profile": [],
+        "categories": [{"id": "cat-salary", "name": "Salario"}],
         "transactions": [
             {
                 "user_id": "user-1",
@@ -125,8 +129,8 @@ def test_get_user_profile_reuses_recent_profile(monkeypatch):
 
     profile = service.get_user_profile(client, "user-1")
 
-    assert profile["avg_monthly_income"] == 1234.0
-    assert called["rebuilt"] is False
+    assert profile["avg_monthly_income"] == 9999.0
+    assert called["rebuilt"] is True
 
 
 def test_get_user_profile_rebuilds_when_stale(monkeypatch):
@@ -155,3 +159,63 @@ def test_get_user_profile_rebuilds_when_stale(monkeypatch):
     profile = service.get_user_profile(client, "user-1")
 
     assert profile["avg_monthly_income"] == 4321.0
+
+
+def test_build_and_store_user_profile_ignores_deleted_and_cancelled():
+    state = {
+        "user_behavior_profile": [],
+        "categories": [{"id": "cat-1", "name": "Casa"}],
+        "transactions": [
+            {
+                "user_id": "user-1",
+                "date": "2026-04-10",
+                "amount": 2000.0,
+                "type": "income",
+                "category_id": None,
+                "account_id": "acc-1",
+                "card_id": None,
+                "deleted_at": None,
+                "status": "paid",
+            },
+            {
+                "user_id": "user-1",
+                "date": "2026-04-11",
+                "amount": 80.0,
+                "type": "expense",
+                "category_id": "cat-1",
+                "account_id": "acc-1",
+                "card_id": None,
+                "deleted_at": None,
+                "status": "paid",
+            },
+            {
+                "user_id": "user-1",
+                "date": "2026-04-12",
+                "amount": 9999.0,
+                "type": "expense",
+                "category_id": "cat-1",
+                "account_id": "acc-1",
+                "card_id": None,
+                "deleted_at": "2026-04-12T10:00:00",
+                "status": "paid",
+            },
+            {
+                "user_id": "user-1",
+                "date": "2026-04-13",
+                "amount": 7777.0,
+                "type": "expense",
+                "category_id": "cat-1",
+                "account_id": "acc-1",
+                "card_id": None,
+                "deleted_at": None,
+                "status": "cancelled",
+            },
+        ],
+    }
+    client = ClientStub(state)
+    profile = service.build_and_store_user_profile(client, "user-1")
+
+    assert profile["avg_monthly_income"] == 2000.0
+    assert profile["avg_monthly_expense"] == 80.0
+    assert profile["avg_monthly_savings"] == 1920.0
+    assert profile["active_months_count"] == 1
