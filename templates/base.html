@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}FinTrack Pro{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -39,7 +40,7 @@
       --mono: 'IBM Plex Mono', monospace;
       --r: 12px;
       --r2: 20px;
-      --sidebar-w: 248px;
+      --sidebar-w: 288px;
       --shadow-sm: 0 12px 28px rgba(72, 56, 36, 0.06);
       --shadow-md: 0 20px 42px rgba(72, 56, 36, 0.08);
     }
@@ -60,15 +61,16 @@
       position: relative;
       width: var(--sidebar-w);
       background:
-        radial-gradient(circle at top, rgba(234,118,47,.14), transparent 30%),
-        linear-gradient(180deg, #1d2722 0%, #18201d 48%, #121816 100%);
+        radial-gradient(circle at -10% -8%, rgba(234,118,47,.13), transparent 42%),
+        radial-gradient(circle at 110% 18%, rgba(104, 146, 133, .10), transparent 38%),
+        linear-gradient(170deg, #1b2621 0%, #141b18 56%, #101513 100%);
       color: #f4f1ec;
-      border-right: 1px solid rgba(255,255,255,.05);
+      border-right: 1px solid rgba(255,255,255,.06);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
       overflow-y: auto;
-      box-shadow: inset -1px 0 0 rgba(255,255,255,.04);
+      box-shadow: inset -1px 0 0 rgba(255,255,255,.03);
     }
     .sidebar::before {
       content: "";
@@ -78,42 +80,185 @@
       pointer-events: none;
     }
     .logo {
-      padding: 24px 18px 18px;
+      padding: 22px 18px 16px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       border-bottom: 1px solid rgba(255,255,255,.06);
       position: relative;
       z-index: 1;
     }
     .logo-icon {
-      width: 38px; height: 38px; background: linear-gradient(180deg, #f08b49 0%, #d96524 100%);
-      border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px;
+      width: 34px; height: 34px; background: linear-gradient(180deg, #f08b49 0%, #d96524 100%);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px;
       color: #fff; flex-shrink: 0; box-shadow: 0 12px 24px rgba(224,108,47,.24);
     }
     .logo-text { font-size: 16px; font-weight: 800; letter-spacing: -.02em; }
-    .logo-sub { font-size: 10px; color: rgba(255,255,255,.52); letter-spacing: .16em; text-transform: uppercase; }
-    .sidebar-section { padding: 14px 12px 4px; position: relative; z-index: 1; }
-    .sidebar-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.32); letter-spacing: .14em; text-transform: uppercase; padding: 0 12px 10px; }
+    .logo-sub { font-size: 9px; color: rgba(255,255,255,.48); letter-spacing: .20em; text-transform: uppercase; margin-top: 1px; }
+    .sidebar-body { padding: 10px 10px 0; position: relative; z-index: 1; }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255,255,255,.34);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding: 0 12px 8px;
+    }
+    .sidebar-top-link { margin-bottom: 8px; }
+    .sidebar-accordion { display: grid; gap: 8px; }
+    .sidebar-group {
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,.02);
+      overflow: hidden;
+    }
+    .sidebar-group.is-open { border-color: rgba(255,255,255,.10); background: rgba(255,255,255,.04); }
+    .sidebar-group-trigger {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: rgba(244,241,236,.84);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease;
+    }
+    .sidebar-group-trigger:hover { background: rgba(255,255,255,.05); color: #fff; }
+    .group-chevron {
+      margin-left: auto;
+      font-size: 10px;
+      opacity: .72;
+      transition: transform .22s ease, opacity .22s ease;
+    }
+    .sidebar-group.is-open .group-chevron { transform: rotate(180deg); opacity: 1; }
+    .sidebar-group-panel {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height .30s ease, opacity .24s ease;
+      border-top: 1px solid rgba(255,255,255,0);
+    }
+    .sidebar-group.is-open .sidebar-group-panel {
+      opacity: 1;
+      border-top-color: rgba(255,255,255,.06);
+    }
+    .sidebar-group-items { padding: 8px 8px 8px 14px; }
     .nav-item {
-      display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px;
-      cursor: pointer; transition: all .18s ease; color: rgba(244,241,236,.76); font-size: 13px;
-      text-decoration: none; margin-bottom: 2px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all .18s ease;
+      color: rgba(244,241,236,.76);
+      font-size: 13px;
+      text-decoration: none;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
     }
-    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; transform: translateX(2px); }
+    .nav-item:hover {
+      background: rgba(255,255,255,.06);
+      border-color: rgba(255,255,255,.07);
+      color: #fff;
+      transform: translateX(1px);
+    }
     .nav-item.active {
-      background: linear-gradient(180deg, rgba(234,118,47,.18), rgba(234,118,47,.10));
-      color: #ffe4d3; font-weight: 700;
-      box-shadow: inset 0 0 0 1px rgba(234,118,47,.22), 0 10px 20px rgba(7,11,10,.18);
+      background: linear-gradient(180deg, rgba(236,146,91,.14), rgba(236,146,91,.08));
+      border-color: rgba(236,146,91,.24);
+      color: #ffe7d8;
+      box-shadow: inset 0 0 0 1px rgba(236,146,91,.12);
     }
-    .nav-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; opacity: .9; }
-    .nav-badge { margin-left: auto; font-size: 10px; font-weight: 700; background: var(--red); color: #fff; padding: 2px 7px; border-radius: 999px; min-width: 18px; text-align: center; }
-    .sidebar-footer { margin-top: auto; padding: 16px 12px; border-top: 1px solid rgba(255,255,255,.06); position: relative; z-index: 1; }
-    .user-card { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; cursor: pointer; transition: background .15s; text-decoration: none; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); }
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      width: 2px;
+      height: 18px;
+      border-radius: 999px;
+      background: #f3aa78;
+      box-shadow: 0 0 12px rgba(243,170,120,.55);
+    }
+    .nav-icon { width: 16px; text-align: center; font-size: 12px; flex-shrink: 0; opacity: .88; }
+    .nav-copy { min-width: 0; display: grid; gap: 1px; }
+    .nav-title { font-weight: 600; line-height: 1.2; }
+    .nav-meta { font-size: 10px; color: rgba(255,255,255,.46); line-height: 1.2; }
+    .nav-item.active .nav-meta { color: rgba(255,238,224,.72); }
+    .nav-sub-item {
+      margin-left: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+    }
+    .nav-sub-item::after {
+      content: "";
+      position: absolute;
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 1px;
+      background: rgba(255,255,255,.20);
+    }
+    .nav-sub-item .nav-title { font-weight: 600; font-size: 12px; }
+    .nav-sub-item .nav-meta { font-size: 10px; }
+    .nav-sub-item.active::after { background: rgba(243,170,120,.9); }
+    .nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(255,255,255,.08);
+      color: rgba(255,255,255,.78);
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 2px 7px;
+      border-radius: 999px;
+      min-width: 18px;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .nav-badge.alert { background: rgba(207,117,106,.20); color: #ffd4ce; border-color: rgba(207,117,106,.30); }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 12px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      position: relative;
+      z-index: 1;
+    }
+    .user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 14px;
+      transition: background .15s;
+      text-decoration: none;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+    }
     .user-card:hover { background: rgba(255,255,255,.07); }
-    .avatar { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; background: rgba(234,118,47,.18); color: #ffd5bf; }
-    .user-name { font-size: 12px; font-weight: 600; color: #fff; }
-    .user-role { font-size: 10px; color: rgba(255,255,255,.50); }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      flex-shrink: 0;
+      background: rgba(234,118,47,.18);
+      color: #ffd5bf;
+    }
+    .user-name { font-size: 12px; font-weight: 700; color: #fff; }
+    .user-role { font-size: 10px; color: rgba(255,255,255,.52); }
+    .user-balance { font-size: 10px; color: rgba(255,255,255,.72); margin-top: 3px; }
 
     /* MAIN */
     .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -220,6 +365,7 @@
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(36,31,27,.34); backdrop-filter: blur(4px); z-index: 500; align-items: center; justify-content: center; padding: 18px; }
     .modal-overlay.open { display: flex; }
     .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 18px; padding: 24px; width: 460px; max-height: 85vh; overflow-y: auto; box-shadow: 0 24px 48px rgba(54,40,21,.16); }
+    .tx-modal { width: min(980px, 96vw); max-height: 92vh; }
     .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
     .modal-title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
     .modal-close { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border2); background: var(--bg2); cursor: pointer; color: var(--text2); }
@@ -294,10 +440,16 @@
       .grid-4 { grid-template-columns: 1fr 1fr; }
       .grid-main, .grid-bottom, .grid-2, .grid-3, .form-row, .form-row-3 { grid-template-columns: 1fr; }
       .sidebar { width: 92px; }
-      .logo-text, .logo-sub, .sidebar-label, .nav-item span:last-child, .user-role, .user-name { display: none; }
-      .nav-item { justify-content: center; }
+      .logo-text, .logo-sub, .sidebar-label, .nav-copy, .user-role, .user-name, .user-balance, .nav-badge, .group-chevron { display: none; }
+      .sidebar-group { border: none; background: transparent; }
+      .sidebar-group-panel { max-height: none !important; opacity: 1 !important; border-top: none; }
+      .sidebar-group-items { padding: 4px 0 0; }
+      .nav-item, .sidebar-group-trigger { justify-content: center; }
+      .nav-sub-item { margin-left: 0; }
+      .nav-sub-item::after { display: none; }
       .topbar { padding: 0 18px; }
       .content { padding: 18px; }
+      .tx-modal { width: 100%; border-radius: 14px; padding: 16px; }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -307,42 +459,165 @@
 <!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="logo">
-    <div class="logo-icon">💰</div>
+    <div class="logo-icon">◈</div>
     <div>
       <div class="logo-text">FinTrack</div>
       <div class="logo-sub">SilentFlow OS</div>
     </div>
   </div>
 
-  <div class="sidebar-section">
-    <div class="sidebar-label">Principal</div>
-    <a href="/dashboard"    class="nav-item {% if active_page == 'dashboard'    %}active{% endif %}"><span class="nav-icon">⬡</span> Dashboard</a>
-    <a href="/transactions" class="nav-item {% if active_page == 'transactions' %}active{% endif %}"><span class="nav-icon">⇄</span> Transações</a>
-    <a href="/accounts"     class="nav-item {% if active_page == 'accounts'     %}active{% endif %}"><span class="nav-icon">◈</span> Contas</a>
-    <a href="/cards"        class="nav-item {% if active_page == 'cards'        %}active{% endif %}"><span class="nav-icon">▣</span> Cartões</a>
-  </div>
+  <div class="sidebar-body">
+    <div class="sidebar-label">Painel</div>
+    <a href="/dashboard" class="nav-item sidebar-top-link {% if active_page == 'dashboard' %}active{% endif %}">
+      <span class="nav-icon">⬡</span>
+      <span class="nav-copy">
+        <span class="nav-title">Dashboard</span>
+        <span class="nav-meta">Visão geral financeira</span>
+      </span>
+    </a>
 
-  <div class="sidebar-section">
-    <div class="sidebar-label">Planejamento</div>
-    <a href="/goals"     class="nav-item {% if active_page == 'goals'     %}active{% endif %}"><span class="nav-icon">◎</span> Metas</a>
-    <a href="/recurring" class="nav-item {% if active_page == 'recurring' %}active{% endif %}"><span class="nav-icon">↻</span> Recorrentes</a>
-    <a href="/reports"   class="nav-item {% if active_page == 'reports'   %}active{% endif %}"><span class="nav-icon">⊞</span> Relatórios</a>
-  </div>
+    <div class="sidebar-accordion" id="sidebar-accordion">
+      <section class="sidebar-group" data-group="movimentacao" data-open-if-active="transactions,imports">
+        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
+          <span class="nav-icon">⇄</span>
+          <span>Movimentação</span>
+          <span class="group-chevron">▾</span>
+        </button>
+        <div class="sidebar-group-panel">
+          <div class="sidebar-group-items">
+            <a href="/transactions" class="nav-item nav-sub-item {% if active_page == 'transactions' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Transações</span>
+                <span class="nav-meta">Lançamentos e histórico</span>
+              </span>
+              <span class="nav-badge" id="sidebar-tx-count">—</span>
+            </a>
+            <a href="/imports" class="nav-item nav-sub-item {% if active_page == 'imports' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Importar</span>
+                <span class="nav-meta">Extratos e arquivos</span>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
 
-  <div class="sidebar-section">
-    <div class="sidebar-label">Família</div>
-    <a href="/family"  class="nav-item {% if active_page == 'family'  %}active{% endif %}"><span class="nav-icon">◑</span> Ambiente Familiar</a>
-    <a href="/alerts"  class="nav-item {% if active_page == 'alerts'  %}active{% endif %}"><span class="nav-icon">◬</span> Alertas</a>
-  </div>
+      <section class="sidebar-group" data-group="estrutura" data-open-if-active="accounts,cards">
+        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
+          <span class="nav-icon">◈</span>
+          <span>Estrutura</span>
+          <span class="group-chevron">▾</span>
+        </button>
+        <div class="sidebar-group-panel">
+          <div class="sidebar-group-items">
+            <a href="/accounts" class="nav-item nav-sub-item {% if active_page == 'accounts' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Contas</span>
+                <span class="nav-meta">Saldos e instituições</span>
+              </span>
+              <span class="nav-badge" id="sidebar-accounts-count">—</span>
+            </a>
+            <a href="/cards" class="nav-item nav-sub-item {% if active_page == 'cards' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Cartões</span>
+                <span class="nav-meta">Limites e faturas</span>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
 
-  <div class="sidebar-section">
-    <div class="sidebar-label">Importação</div>
-    <a href="/imports" class="nav-item {% if active_page == 'imports' %}active{% endif %}"><span class="nav-icon">⇪</span> Importar Extratos</a>
-  </div>
+      <section class="sidebar-group" data-group="planejamento" data-open-if-active="goals,recurring">
+        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
+          <span class="nav-icon">◎</span>
+          <span>Planejamento</span>
+          <span class="group-chevron">▾</span>
+        </button>
+        <div class="sidebar-group-panel">
+          <div class="sidebar-group-items">
+            <a href="/goals" class="nav-item nav-sub-item {% if active_page == 'goals' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Metas</span>
+                <span class="nav-meta">Objetivos financeiros</span>
+              </span>
+            </a>
+            <a href="/recurring" class="nav-item nav-sub-item {% if active_page == 'recurring' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Recorrentes</span>
+                <span class="nav-meta">Automatizações mensais</span>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
 
-  <div class="sidebar-section">
-    <div class="sidebar-label">Configurações</div>
-    <a href="/settings/intelligence" class="nav-item {% if active_page == 'intelligence' %}active{% endif %}"><span class="nav-icon">🧠</span> Inteligência</a>
+      <section class="sidebar-group" data-group="inteligencia" data-open-if-active="intelligence,alerts,reports">
+        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
+          <span class="nav-icon">◍</span>
+          <span>Inteligência</span>
+          <span class="group-chevron">▾</span>
+        </button>
+        <div class="sidebar-group-panel">
+          <div class="sidebar-group-items">
+            <a href="/settings/intelligence" class="nav-item nav-sub-item {% if active_page == 'intelligence' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Insights</span>
+                <span class="nav-meta">Leitura inteligente</span>
+              </span>
+              <span class="nav-badge" id="sidebar-insights-critical">—</span>
+            </a>
+            <a href="/alerts" class="nav-item nav-sub-item {% if active_page == 'alerts' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Alertas</span>
+                <span class="nav-meta">Sinais importantes</span>
+              </span>
+              <span class="nav-badge alert" id="sidebar-alerts-unread">—</span>
+            </a>
+            <a href="/reports" class="nav-item nav-sub-item {% if active_page == 'reports' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Relatórios</span>
+                <span class="nav-meta">Comparativos mensais</span>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="sidebar-group" data-group="configuracoes" data-open-if-active="profile,settings,family">
+        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
+          <span class="nav-icon">◉</span>
+          <span>Configurações</span>
+          <span class="group-chevron">▾</span>
+        </button>
+        <div class="sidebar-group-panel">
+          <div class="sidebar-group-items">
+            <a href="/profile" class="nav-item nav-sub-item {% if active_page == 'profile' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Perfil</span>
+                <span class="nav-meta">Conta e preferências</span>
+              </span>
+            </a>
+            <a href="/family" class="nav-item nav-sub-item {% if active_page == 'family' %}active{% endif %}">
+              <span class="nav-icon">•</span>
+              <span class="nav-copy">
+                <span class="nav-title">Família</span>
+                <span class="nav-meta">Ambiente compartilhado</span>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 
   <div class="sidebar-footer">
@@ -350,10 +625,11 @@
       <div class="avatar">{{ (user.full_name or 'U')[:2].upper() }}</div>
       <div style="flex:1;min-width:0">
         <div class="user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ user.full_name or 'Usuário' }}</div>
-        <div class="user-role">Pessoal + Família</div>
+        <div class="user-role">Conta principal ativa</div>
+        <div class="user-balance" id="sidebar-total-balance">Saldo total: —</div>
       </div>
     </div>
-    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);color:#f4f1ec">Sair</a>
+    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#f4f1ec">Sair</a>
   </div>
 </nav>
 
@@ -376,9 +652,12 @@
 
 <!-- TRANSACTION MODAL -->
 <div class="modal-overlay" id="tx-modal" onclick="if(event.target===this)closeModal('tx-modal')">
-  <div class="modal">
+  <div class="modal tx-modal">
     <div class="modal-header">
-      <div class="modal-title">Nova Transação</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="modal-title" style="font-size:24px">Nova Transação</div>
+        <button class="btn btn-ghost" style="width:max-content;padding:6px 10px;font-size:11px" onclick="saveTx('recurring')">Tornar recorrente</button>
+      </div>
       <button class="modal-close" onclick="closeModal('tx-modal')">✕</button>
     </div>
 
@@ -388,12 +667,51 @@
       <button class="type-btn" onclick="setTxType('transfer',this)">Transferência</button>
     </div>
 
-    <input class="amount-input" id="tx-amount" type="text" placeholder="R$ 0,00" oninput="formatAmount(this)" />
+    <div class="card" style="margin-bottom:14px;background:linear-gradient(180deg,#fff6eb,#fffdf9)">
+      <div class="card-title" style="font-size:13px">Lançamento rápido com IA</div>
+      <div class="card-sub">A IA vai sugerir categoria, conta e forma de pagamento automaticamente</div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <input class="form-input" id="tx-quick-input" type="text" placeholder="Digite como: mercado 120 nubank" style="flex:1;min-width:240px;height:44px">
+        <button class="btn btn-primary" type="button" onclick="runQuickParse()" style="height:44px">Usar IA</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="filter-tab" type="button" onclick="applyQuickChip('mercado 120')">mercado 120</button>
+        <button class="filter-tab" type="button" onclick="applyQuickChip('uber 35 crédito')">uber 35 crédito</button>
+        <button class="filter-tab" type="button" onclick="applyQuickChip('salário 3500')">salário 3500</button>
+        <button class="filter-tab" type="button" onclick="applyQuickChip('netflix 55')">netflix 55</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title" style="font-size:13px">Contexto financeiro</div>
+      <div class="grid-3" style="margin-top:10px;gap:10px">
+        <div style="padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg3)">
+          <div class="card-sub">Saldo atual</div>
+          <div id="tx-balance-current" class="mono font-bold" style="font-size:18px">R$ 0,00</div>
+        </div>
+        <div style="padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg3)">
+          <div class="card-sub">Após lançamento</div>
+          <div id="tx-balance-projected" class="mono font-bold" style="font-size:18px">R$ 0,00</div>
+        </div>
+        <div style="padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg3)">
+          <div class="card-sub">Impacto no orçamento</div>
+          <div id="tx-impact-status" class="badge badge-income" style="margin-top:4px">Saudável</div>
+          <div id="tx-impact-hint" class="text-muted" style="font-size:11px;margin-top:6px">Impacto dentro de uma zona confortável.</div>
+        </div>
+      </div>
+    </div>
+
     <div id="tx-error" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none"></div>
 
-    <div class="form-group">
-      <label class="form-label">Descrição</label>
-      <input class="form-input" id="tx-desc" type="text" placeholder="Ex: Mercado, Salário, Uber..." oninput="debouncedTxSuggestion()" />
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Valor</label>
+        <input class="amount-input" id="tx-amount" type="text" placeholder="R$ 0,00" oninput="formatAmount(this)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <input class="form-input" id="tx-desc" type="text" placeholder="Ex: Mercado, Salário, Uber..." oninput="debouncedTxSuggestion()" />
+      </div>
     </div>
 
     <div id="tx-suggestion-box" style="display:none;margin-bottom:14px;padding:12px;border:1px solid rgba(95,132,201,.18);background:var(--blue-bg);border-radius:12px">
@@ -408,12 +726,12 @@
 
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Categoria</label>
-        <select class="form-select" id="tx-category"></select>
+        <label class="form-label" id="tx-account-label">Conta</label>
+        <select class="form-select" id="tx-account" onchange="handleTxAccountSelection()"></select>
       </div>
       <div class="form-group">
-        <label class="form-label">Data</label>
-        <input class="form-input" id="tx-date" type="date" />
+        <label class="form-label">Categoria <span id="tx-category-ai-badge" class="badge badge-shared" style="display:none;margin-left:6px">Sugerida pela IA</span></label>
+        <select class="form-select" id="tx-category" onchange="markManualCategoryChange()"></select>
       </div>
     </div>
 
@@ -423,20 +741,21 @@
         <select class="form-select" id="tx-payment-method" onchange="handlePaymentMethodChange()">
           <option value="account">Conta</option>
           <option value="pix">Pix</option>
-          <option value="card">Cartao</option>
+          <option value="card">Crédito</option>
           <option value="boleto">Boleto</option>
           <option value="cash">Dinheiro</option>
+          <option value="other">Outro</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label" id="tx-account-label">Conta</label>
-        <select class="form-select" id="tx-account"></select>
+        <label class="form-label">Data</label>
+        <input class="form-input" id="tx-date" type="date" />
       </div>
     </div>
 
     <div class="form-row">
       <div class="form-group" id="tx-card-group" style="display:none">
-        <label class="form-label">Cartao</label>
+        <label class="form-label">Cartão</label>
         <select class="form-select" id="tx-card"></select>
       </div>
       <div class="form-group" id="tx-due-date-group" style="display:none">
@@ -462,18 +781,13 @@
           <option value="shared">Familiar</option>
         </select>
       </div>
-      <div class="form-group" id="tx-impact-group">
-        <label class="form-label">Impacto</label>
-        <div class="form-input" id="tx-impact-hint" style="display:flex;align-items:center">Sai da conta imediatamente.</div>
-      </div>
-    </div>
-
-    <div id="tx-installment-wrap" style="display:none;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:14px">
-      <input type="checkbox" id="tx-installment" onchange="toggleInstallment()" style="width:16px;height:16px;accent-color:var(--accent)">
-      <label for="tx-installment" style="font-size:13px;color:var(--text2);cursor:pointer;flex:1">Parcelado</label>
-      <div id="installment-ctrl" style="display:none;align-items:center;gap:6px">
-        <input type="number" id="tx-parcelas" min="2" max="48" value="2" class="form-input" style="width:60px;text-align:center;padding:4px 8px">
-        <span style="font-size:11px;color:var(--text2)">parcelas</span>
+      <div id="tx-installment-wrap" style="display:none;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:14px">
+        <input type="checkbox" id="tx-installment" onchange="toggleInstallment()" style="width:16px;height:16px;accent-color:var(--accent)">
+        <label for="tx-installment" style="font-size:13px;color:var(--text2);cursor:pointer;flex:1">Parcelado</label>
+        <div id="installment-ctrl" style="display:none;align-items:center;gap:6px">
+          <input type="number" id="tx-parcelas" min="2" max="48" value="2" class="form-input" style="width:60px;text-align:center;padding:4px 8px">
+          <span style="font-size:11px;color:var(--text2)">parcelas</span>
+        </div>
       </div>
     </div>
 
@@ -482,9 +796,24 @@
       <input class="form-input" id="tx-notes" type="text" placeholder="Notas adicionais..." />
     </div>
 
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('tx-modal')">Cancelar</button>
-      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="saveTx()">Salvar transação</button>
+    <div class="card" style="margin-bottom:14px;background:#fff9ef">
+      <div class="card-title" style="font-size:12px">Dica: Lançamento Rápido</div>
+      <div class="card-sub" style="margin-top:6px">Use linguagem natural para lançamentos ainda mais rápidos. Ex: aluguel 450 cartão</div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+        <div class="card-title" style="font-size:13px">Últimas transações</div>
+        <a href="/transactions" class="filter-tab">Ver todas</a>
+      </div>
+      <div id="tx-recent-list" style="display:flex;gap:10px;overflow:auto;padding-bottom:4px"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" style="flex:1;min-width:130px;justify-content:center" onclick="closeModal('tx-modal')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1;min-width:130px;justify-content:center" onclick="saveTx('save')">Salvar</button>
+      <button class="btn btn-ghost" style="flex:1;min-width:160px;justify-content:center" onclick="saveTx('repeat')">Salvar e repetir</button>
+      <button class="btn btn-ghost" style="flex:1;min-width:160px;justify-content:center" onclick="saveTx('recurring')">Tornar recorrente</button>
     </div>
   </div>
 </div>
@@ -502,41 +831,207 @@ let txType = 'expense';
 let txSuggestion = null;
 let txSuggestionTimer = null;
 let txPaymentMethod = 'account';
+let txAccountsCache = [];
+let txCardsCache = [];
+let txCategoriesCache = [];
+let txCategorySuggestedByAI = false;
+let txIsEditing = false;
+
+function fmtCurrency(value) {
+  return (Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function setSidebarBadge(id, value) {
+  const node = document.getElementById(id);
+  if (!node) return;
+  node.textContent = value;
+}
+
+async function loadSidebarContext() {
+  try {
+    const [txPayload, accountsPayload, alertsPayload] = await Promise.all([
+      fetch('/api/transactions?per_page=1').then(r => r.ok ? r.json() : Promise.resolve(null)),
+      fetch('/api/accounts').then(r => r.ok ? r.json() : Promise.resolve([])),
+      fetch('/api/intelligence/alerts?include_read=false&limit=20').then(r => r.ok ? r.json() : Promise.resolve(null)),
+    ]);
+
+    const txCount = Number(txPayload?.count || 0);
+    const accounts = Array.isArray(accountsPayload) ? accountsPayload : [];
+    const activeAccounts = accounts.filter((acc) => acc?.is_active !== false).length;
+    const totalBalance = accounts
+      .filter((acc) => acc?.include_in_total !== false)
+      .reduce((sum, acc) => sum + Number(acc?.current_balance || 0), 0);
+
+    setSidebarBadge('sidebar-tx-count', `${txCount} no mês`);
+    setSidebarBadge('sidebar-accounts-count', `${activeAccounts} ativas`);
+
+    if (alertsPayload) {
+      const unread = Number(alertsPayload.unread || 0);
+      const critical = Number(alertsPayload.critical || 0);
+      setSidebarBadge('sidebar-alerts-unread', unread > 0 ? String(unread) : '0');
+      setSidebarBadge('sidebar-insights-critical', critical > 0 ? `${critical} críticos` : 'Estável');
+    } else {
+      setSidebarBadge('sidebar-alerts-unread', '—');
+      setSidebarBadge('sidebar-insights-critical', '—');
+    }
+
+    const balanceNode = document.getElementById('sidebar-total-balance');
+    if (balanceNode) {
+      balanceNode.textContent = `Saldo total: ${fmtCurrency(totalBalance)}`;
+    }
+  } catch (_) {
+    setSidebarBadge('sidebar-tx-count', '—');
+    setSidebarBadge('sidebar-accounts-count', '—');
+    setSidebarBadge('sidebar-alerts-unread', '—');
+    setSidebarBadge('sidebar-insights-critical', '—');
+  }
+}
+
+function initializeSidebarAccordion() {
+  const accordion = document.getElementById('sidebar-accordion');
+  if (!accordion) return;
+
+  const groups = Array.from(accordion.querySelectorAll('.sidebar-group'));
+  if (!groups.length) return;
+
+  const storageKey = 'fintrack.sidebar.openGroup';
+
+  function openGroup(groupToOpen) {
+    groups.forEach((group) => {
+      const panel = group.querySelector('.sidebar-group-panel');
+      const trigger = group.querySelector('.sidebar-group-trigger');
+      const shouldOpen = group === groupToOpen;
+      group.classList.toggle('is-open', shouldOpen);
+      if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+      if (panel) panel.style.maxHeight = shouldOpen ? `${panel.scrollHeight}px` : '0px';
+    });
+    const groupKey = groupToOpen?.dataset?.group || '';
+    if (!groupKey) return;
+    try {
+      localStorage.setItem(storageKey, groupKey);
+    } catch (_) {}
+  }
+
+  let activeGroup = groups.find((group) => group.querySelector('.nav-sub-item.active'));
+  if (!activeGroup) {
+    let storedGroupKey = '';
+    try {
+      storedGroupKey = localStorage.getItem(storageKey) || '';
+    } catch (_) {}
+    if (storedGroupKey) {
+      activeGroup = groups.find((group) => group.dataset.group === storedGroupKey);
+    }
+  }
+  if (!activeGroup) activeGroup = groups[0];
+  openGroup(activeGroup);
+
+  groups.forEach((group) => {
+    const trigger = group.querySelector('.sidebar-group-trigger');
+    if (!trigger) return;
+    trigger.addEventListener('click', () => openGroup(group));
+  });
+
+  window.addEventListener('resize', () => {
+    const open = accordion.querySelector('.sidebar-group.is-open .sidebar-group-panel');
+    if (open) open.style.maxHeight = `${open.scrollHeight}px`;
+  });
+}
+
+function clearTxFormForRepeat() {
+  document.getElementById('tx-amount').value = '';
+  document.getElementById('tx-desc').value = '';
+  document.getElementById('tx-notes').value = '';
+  document.getElementById('tx-quick-input').value = '';
+  document.getElementById('tx-category').value = '';
+  txCategorySuggestedByAI = false;
+  updateTxCategoryBadge();
+  resetTxSuggestion();
+  refreshTxPreview();
+}
+
+function handleTxAccountSelection() {
+  const accountValue = document.getElementById('tx-account').value;
+  if (accountValue === '__card__') {
+    document.getElementById('tx-payment-method').value = 'card';
+    txPaymentMethod = 'card';
+    handlePaymentMethodChange();
+    return;
+  }
+  refreshTxPreview();
+}
+
+function updateTxCategoryBadge() {
+  const badge = document.getElementById('tx-category-ai-badge');
+  if (!badge) return;
+  badge.style.display = txCategorySuggestedByAI ? 'inline-flex' : 'none';
+}
+
+function markManualCategoryChange() {
+  txCategorySuggestedByAI = false;
+  updateTxCategoryBadge();
+}
 
 async function loadTxModalData() {
-  const [cats, accs, cards] = await Promise.all([
+  const [cats, accs, cards, recent] = await Promise.all([
     fetch('/api/categories').then(r=>r.json()),
     fetch('/api/accounts').then(r=>r.json()),
     fetch('/api/cards').then(r=>r.json()),
+    fetch('/api/transactions/recent?limit=6').then(r=>r.json()),
   ]);
+  txCategoriesCache = cats || [];
+  txAccountsCache = accs || [];
+  txCardsCache = cards || [];
+
   const catSel = document.getElementById('tx-category');
   catSel.innerHTML = '<option value="">Selecionar...</option>';
-  (cats||[]).forEach(c => {
+  (txCategoriesCache || []).forEach(c => {
     const o = document.createElement('option');
     o.value = c.id; o.textContent = `${c.icon} ${c.name}`;
     catSel.appendChild(o);
   });
   const accSel = document.getElementById('tx-account');
   accSel.innerHTML = '<option value="">Selecionar...</option>';
-  (accs||[]).forEach(a => {
+  const cardShortcut = document.createElement('option');
+  cardShortcut.value = '__card__';
+  cardShortcut.textContent = 'Cartão de crédito (usar cartão)';
+  accSel.appendChild(cardShortcut);
+  (txAccountsCache || []).forEach(a => {
     const o = document.createElement('option');
-    o.value = a.id; o.textContent = a.name;
+    o.value = a.id;
+    o.textContent = `${a.name} · ${fmtCurrency(a.current_balance || 0)}`;
     accSel.appendChild(o);
   });
   const cardSel = document.getElementById('tx-card');
   cardSel.innerHTML = '<option value="">Selecionar...</option>';
-  (cards||[]).forEach(c => {
+  (txCardsCache || []).forEach(c => {
     const o = document.createElement('option');
     o.value = c.id; o.textContent = c.name;
     cardSel.appendChild(o);
   });
+  renderRecentTransactions(recent || []);
   document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('tx-payment-method').value = 'account';
   document.getElementById('tx-status').value = 'paid';
+  document.getElementById('tx-scope').value = 'personal';
+  txCategorySuggestedByAI = false;
+  updateTxCategoryBadge();
   handlePaymentMethodChange();
   initializeTxModalFromUrl();
+  refreshTxPreview();
 }
 loadTxModalData();
+loadSidebarContext();
+initializeSidebarAccordion();
+
+const txQuickInput = document.getElementById('tx-quick-input');
+if (txQuickInput) {
+  txQuickInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runQuickParse();
+    }
+  });
+}
 
 function initializeTxModalFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -619,6 +1114,7 @@ function applyTxSuggestion(result) {
   }
   if (suggestions.category_id) document.getElementById('tx-category').value = suggestions.category_id;
   if (suggestions.account_id) document.getElementById('tx-account').value = suggestions.account_id;
+  refreshTxPreview();
 }
 
 async function fetchTxSuggestion() {
@@ -647,6 +1143,135 @@ async function fetchTxSuggestion() {
 function debouncedTxSuggestion() {
   clearTimeout(txSuggestionTimer);
   txSuggestionTimer = setTimeout(fetchTxSuggestion, 250);
+}
+
+function applyQuickChip(value) {
+  const input = document.getElementById('tx-quick-input');
+  input.value = value;
+  runQuickParse();
+}
+
+async function runQuickParse() {
+  const raw = document.getElementById('tx-quick-input').value.trim();
+  if (!raw) return;
+  try {
+    const response = await fetch('/api/transactions/quick-parse', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ raw_text: raw }),
+    });
+    const parsed = await response.json();
+    if (!response.ok) {
+      showToast(parsed.detail || 'Não foi possível interpretar o texto.', 'error');
+      return;
+    }
+    if (parsed.description) document.getElementById('tx-desc').value = parsed.description;
+    if (parsed.amount) {
+      const cents = Math.round(Number(parsed.amount) * 100);
+      const amountInput = document.getElementById('tx-amount');
+      amountInput.value = String(cents);
+      formatAmount(amountInput);
+    }
+    if (parsed.transaction_type) {
+      const btn = Array.from(document.querySelectorAll('.type-btn')).find((node) => {
+        const label = node.textContent.toLowerCase();
+        if (parsed.transaction_type === 'expense') return label.includes('despesa');
+        if (parsed.transaction_type === 'income') return label.includes('receita');
+        return label.includes('transfer');
+      });
+      if (btn) setTxType(parsed.transaction_type, btn);
+    }
+    if (parsed.payment_method) {
+      document.getElementById('tx-payment-method').value = parsed.payment_method;
+      handlePaymentMethodChange();
+    }
+    if (parsed.account_id) document.getElementById('tx-account').value = parsed.account_id;
+    if (parsed.category_id) {
+      document.getElementById('tx-category').value = parsed.category_id;
+      txCategorySuggestedByAI = true;
+      updateTxCategoryBadge();
+    }
+    refreshTxPreview();
+  } catch (_error) {
+    showToast('Falha ao interpretar o lançamento rápido.', 'error');
+  }
+}
+
+function renderRecentTransactions(rows) {
+  const root = document.getElementById('tx-recent-list');
+  if (!root) return;
+  root.innerHTML = '';
+  if (!rows || !rows.length) {
+    root.innerHTML = '<div class="text-muted" style="font-size:12px">Sem transações recentes.</div>';
+    return;
+  }
+  rows.forEach((tx) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.style.cssText = 'min-width:200px;max-width:240px;text-align:left;border:1px solid var(--border);background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer';
+    const signal = tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : '';
+    const dateText = (tx.date || '').slice(8, 10) + '/' + (tx.date || '').slice(5, 7);
+    item.innerHTML = `
+      <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tx.description || 'Transação'}</div>
+      <div style="margin-top:6px;font-size:12px" class="mono ${tx.type === 'income' ? 'text-success' : 'text-danger'}">${signal}${fmtCurrency(tx.amount || 0)}</div>
+      <div class="text-muted" style="font-size:11px;margin-top:4px">${dateText}</div>
+    `;
+    item.onclick = () => {
+      document.getElementById('tx-desc').value = tx.description || '';
+      const amountInput = document.getElementById('tx-amount');
+      amountInput.value = String(Math.round((Number(tx.amount) || 0) * 100));
+      formatAmount(amountInput);
+      if (tx.category_id) document.getElementById('tx-category').value = tx.category_id;
+      if (tx.account_id) document.getElementById('tx-account').value = tx.account_id;
+      if (tx.payment_method) {
+        document.getElementById('tx-payment-method').value = tx.payment_method;
+        handlePaymentMethodChange();
+      }
+      refreshTxPreview();
+    };
+    root.appendChild(item);
+  });
+}
+
+async function refreshTxPreview() {
+  const selectedAccount = document.getElementById('tx-account').value;
+  const accountId = selectedAccount === '__card__' ? '' : selectedAccount;
+  const amountRaw = document.getElementById('tx-amount').value;
+  const amount = Number((amountRaw || '').replace(/\D/g, '')) / 100;
+  if (!accountId) {
+    document.getElementById('tx-balance-current').textContent = fmtCurrency(0);
+    document.getElementById('tx-balance-projected').textContent = fmtCurrency(0);
+    document.getElementById('tx-impact-status').textContent = 'Saudável';
+    document.getElementById('tx-impact-status').className = 'badge badge-income';
+    document.getElementById('tx-impact-hint').textContent = 'Selecione uma conta para visualizar impacto.';
+    return;
+  }
+  try {
+    const q = new URLSearchParams({
+      account_id: accountId,
+      amount: String(amount || 0),
+      type: txType,
+    });
+    const response = await fetch(`/api/transactions/preview?${q.toString()}`);
+    const result = await response.json();
+    if (!response.ok) return;
+    document.getElementById('tx-balance-current').textContent = fmtCurrency(result.current_balance || 0);
+    document.getElementById('tx-balance-projected').textContent = fmtCurrency(result.projected_balance || 0);
+    const badge = document.getElementById('tx-impact-status');
+    if ((result.impact_status || '') === 'critico') {
+      badge.textContent = 'Crítico';
+      badge.className = 'badge badge-expense';
+    } else if ((result.impact_status || '') === 'atencao') {
+      badge.textContent = 'Atenção';
+      badge.className = 'badge badge-recurring';
+    } else {
+      badge.textContent = 'Saudável';
+      badge.className = 'badge badge-income';
+    }
+    document.getElementById('tx-impact-hint').textContent = result.message || 'Impacto previsto com sucesso.';
+  } catch (_error) {
+    // Silent fallback for preview panel.
+  }
 }
 
 async function sendTxFeedback(savedTransaction) {
@@ -695,6 +1320,7 @@ function setTxType(type, btn) {
     b.className = 'type-btn';
     if (b === btn) b.classList.add(`active-${type}`);
   });
+  refreshTxPreview();
 }
 
 function formatAmount(input) {
@@ -702,6 +1328,7 @@ function formatAmount(input) {
   if (!nums) { input.value = ''; return; }
   const val = (parseInt(nums)/100).toFixed(2);
   input.value = 'R$ ' + parseFloat(val).toLocaleString('pt-BR', {minimumFractionDigits:2});
+  refreshTxPreview();
 }
 
 function toggleInstallment() {
@@ -713,7 +1340,7 @@ function handlePaymentMethodChange() {
   txPaymentMethod = document.getElementById('tx-payment-method').value;
   const isCard = txPaymentMethod === 'card';
   const isBoleto = txPaymentMethod === 'boleto';
-  const isImmediate = ['account', 'pix', 'cash'].includes(txPaymentMethod);
+  const isImmediate = ['account', 'pix', 'cash', 'other'].includes(txPaymentMethod);
 
   document.getElementById('tx-card-group').style.display = isCard ? '' : 'none';
   document.getElementById('tx-due-date-group').style.display = isBoleto ? '' : 'none';
@@ -722,10 +1349,10 @@ function handlePaymentMethodChange() {
   document.getElementById('tx-account-label').textContent = isBoleto ? 'Conta pagadora (opcional)' : 'Conta';
 
   if (isCard) {
-    document.getElementById('tx-impact-hint').textContent = 'Vai para a fatura do cartao e nao reduz saldo agora.';
+    document.getElementById('tx-impact-hint').textContent = 'Vai para a fatura do cartão e não reduz saldo agora.';
     document.getElementById('tx-status').value = 'paid';
   } else if (isBoleto) {
-    document.getElementById('tx-impact-hint').textContent = 'Fica pendente ate a quitacao do boleto.';
+    document.getElementById('tx-impact-hint').textContent = 'Fica pendente até a quitação do boleto.';
     if (!document.getElementById('tx-status').value || document.getElementById('tx-status').value === 'paid') {
       document.getElementById('tx-status').value = 'pending';
     }
@@ -740,18 +1367,19 @@ function handlePaymentMethodChange() {
     document.getElementById('tx-installment').checked = false;
     toggleInstallment();
   }
+  refreshTxPreview();
 }
 
-async function saveTx() {
+async function saveTx(action = 'save') {
   const amountRaw = document.getElementById('tx-amount').value;
   const desc      = document.getElementById('tx-desc').value.trim();
   const catId     = document.getElementById('tx-category').value;
   const date      = document.getElementById('tx-date').value;
   const errEl     = document.getElementById('tx-error');
 
-  if (!desc || !amountRaw || !catId || !date) {
+  if (!desc || !amountRaw || !date) {
     errEl.style.display = 'block';
-    errEl.textContent   = 'Preencha todos os campos obrigatórios.';
+    errEl.textContent   = 'Preencha descrição, valor e data.';
     return;
   }
   errEl.style.display = 'none';
@@ -760,22 +1388,27 @@ async function saveTx() {
   const amount = parseInt(nums) / 100;
   const isInst = txPaymentMethod === 'card' && document.getElementById('tx-installment').checked;
   const parcelas = parseInt(document.getElementById('tx-parcelas').value) || 2;
-  const accountId = document.getElementById('tx-account').value || null;
+  const accountRaw = document.getElementById('tx-account').value || null;
+  const accountId = accountRaw === '__card__' ? null : accountRaw;
   const cardId = document.getElementById('tx-card').value || null;
   const dueDate = document.getElementById('tx-due-date').value || null;
   const status = document.getElementById('tx-status').value || null;
+  let normalizedPaymentMethod = txPaymentMethod === 'other' ? 'account' : txPaymentMethod;
+  if (accountRaw === '__card__') {
+    normalizedPaymentMethod = 'card';
+  }
 
-  if (['account', 'pix', 'cash'].includes(txPaymentMethod) && !accountId) {
+  if (['account', 'pix', 'cash', 'other'].includes(normalizedPaymentMethod) && !accountId) {
     errEl.style.display = 'block';
     errEl.textContent   = 'Selecione uma conta para esta forma de pagamento.';
     return;
   }
-  if (txPaymentMethod === 'card' && !cardId) {
+  if (normalizedPaymentMethod === 'card' && !cardId) {
     errEl.style.display = 'block';
     errEl.textContent   = 'Selecione um cartao.';
     return;
   }
-  if (txPaymentMethod === 'boleto' && !dueDate) {
+  if (normalizedPaymentMethod === 'boleto' && !dueDate) {
     errEl.style.display = 'block';
     errEl.textContent   = 'Informe o vencimento do boleto.';
     return;
@@ -784,15 +1417,15 @@ async function saveTx() {
   const payload = {
     type:               txType,
     scope:              document.getElementById('tx-scope').value,
-    payment_method:     txPaymentMethod,
-    status:             txPaymentMethod === 'boleto' ? status : 'paid',
+    payment_method:     normalizedPaymentMethod,
+    status:             normalizedPaymentMethod === 'boleto' ? status : 'paid',
     description:        desc,
     amount:             amount,
     date:               date,
     category_id:        catId,
-    account_id:         txPaymentMethod === 'card' ? null : accountId,
-    card_id:            txPaymentMethod === 'card' ? cardId : null,
-    due_date:           txPaymentMethod === 'boleto' ? dueDate : null,
+    account_id:         normalizedPaymentMethod === 'card' ? null : accountId,
+    card_id:            normalizedPaymentMethod === 'card' ? cardId : null,
+    due_date:           normalizedPaymentMethod === 'boleto' ? dueDate : null,
     notes:              document.getElementById('tx-notes').value || null,
     is_installment:     isInst,
     total_installments: isInst ? parcelas : null,
@@ -800,19 +1433,79 @@ async function saveTx() {
   };
 
   try {
+    if (action === 'recurring') {
+      if (!catId || !accountId) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Para recorrência, selecione categoria e conta.';
+        return;
+      }
+      const recurringPayload = {
+        category_id: catId,
+        account_id: accountId,
+        type: txType,
+        scope: document.getElementById('tx-scope').value,
+        description: desc,
+        amount,
+        frequency: 'monthly',
+        start_date: date,
+        end_date: null,
+        is_active: true,
+      };
+      const recurringResp = await fetch('/api/recurring', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(recurringPayload),
+      });
+      if (!recurringResp.ok) {
+        const e = await recurringResp.json();
+        errEl.style.display = 'block';
+        errEl.textContent = e.detail || 'Erro ao criar recorrência.';
+        return;
+      }
+      closeModal('tx-modal');
+      showToast('Recorrência criada com sucesso.', 'success');
+      setTimeout(() => location.reload(), 800);
+      return;
+    }
+
+    if (!catId) {
+      errEl.style.display = 'block';
+      errEl.textContent   = 'Selecione uma categoria antes de salvar.';
+      return;
+    }
+
     const r = await fetch('/api/transactions', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(payload),
     });
     if (!r.ok) {
-      const e = await r.json();
+      let e = {};
+      try {
+        e = await r.json();
+      } catch (_) {
+        try {
+          const txt = await r.text();
+          e = { detail: txt || '' };
+        } catch (__){
+          e = {};
+        }
+      }
       errEl.style.display = 'block';
-      errEl.textContent   = e.detail || 'Erro ao salvar.';
+      errEl.textContent   = e.detail || `Erro ao salvar (HTTP ${r.status}).`;
       return;
     }
+
     const saved = await r.json();
     await sendTxFeedback(saved);
+    if (action === 'repeat') {
+      showToast('Transação salva. Pronto para repetir.', 'success');
+      clearTxFormForRepeat();
+      const recent = await fetch('/api/transactions/recent?limit=6').then((res) => res.json());
+      renderRecentTransactions(recent || []);
+      await loadTxModalData();
+      return;
+    }
     closeModal('tx-modal');
     resetTxSuggestion();
     showToast('Transação salva!', 'success');

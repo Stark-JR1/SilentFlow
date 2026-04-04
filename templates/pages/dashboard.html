@@ -9,6 +9,7 @@
 {% set previous_net = (previous_evo.income - previous_evo.expenses) if previous_evo else none %}
 {% set comparison_delta = (current_net - previous_net) if previous_net is not none else none %}
 {% set savings_positive = kpis.net_result >= 0 %}
+{% set spend_ratio = ((kpis.total_expenses / kpis.total_income) * 100) if kpis.total_income > 0 else 0 %}
 {% set health_tone = 'strong' if kpis.savings_rate >= 20 and savings_positive else 'steady' if savings_positive else 'attention' %}
 {% set health_copy = 'Voce esta construindo margem com folga neste mes.' if health_tone == 'strong' else 'Seu caixa segue equilibrado, com espaco para melhorar.' if health_tone == 'steady' else 'Os gastos estao pressionando o saldo deste mes.' %}
 {% set insight_count = (insights|length) + (alerts.items|length if alerts and alerts.items else 0) %}
@@ -16,6 +17,7 @@
 {% block topbar_extra %}
 <div class="dashboard-topbar-tools">
   <div class="dashboard-period">
+    <span class="dashboard-breadcrumb">Painel financeiro</span>
     <span class="dashboard-period-label">Periodo</span>
     <div class="month-nav">
       <button class="month-btn" onclick="changeMonth(-1)">&#9664;</button>
@@ -49,6 +51,14 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+  .dashboard-breadcrumb {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-right: 12px;
   }
   .dashboard-period-label {
     font-size: 11px;
@@ -205,6 +215,26 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
+  }
+  .mental-map {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .mental-node {
+    padding: 14px 15px;
+    border-radius: 16px;
+    border: 1px solid rgba(101, 83, 60, 0.08);
+    background: #fff;
+  }
+  .mental-node-title {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .mental-node-copy {
+    font-size: 11px;
+    color: var(--text2);
   }
   .premium-stat {
     padding: 22px;
@@ -639,7 +669,8 @@
     .hero-grid,
     .tx-summary-layout,
     .dashboard-side,
-    .secondary-grid {
+    .secondary-grid,
+    .mental-map {
       grid-template-columns: 1fr;
     }
     .chart-highlight {
@@ -767,15 +798,21 @@
       <article class="premium-stat">
         <div class="premium-stat-header">
           <div>
-            <div class="premium-stat-label">Saude Financeira</div>
-            <div class="premium-stat-copy">{{ health_copy }}</div>
+            <div class="premium-stat-label">Resultado do mes</div>
+            <div class="premium-stat-copy">
+              {% if kpis.net_result >= 0 %}
+              Voce economizou este mes.
+              {% else %}
+              Voce gastou mais do que ganhou.
+              {% endif %}
+            </div>
           </div>
-          <span class="premium-stat-badge {{ 'positive' if health_tone == 'strong' else 'neutral' if health_tone == 'steady' else 'negative' }}">
-            {{ 'Forte' if health_tone == 'strong' else 'Estavel' if health_tone == 'steady' else 'Atencao' }}
+          <span class="premium-stat-badge {{ 'positive' if kpis.net_result >= 0 else 'negative' }}">
+            {{ 'Superavit' if kpis.net_result >= 0 else 'Deficit' }}
           </span>
         </div>
-        <div class="premium-stat-value">{{ kpis.savings_rate }}%</div>
-        <div class="premium-stat-copy">Taxa de poupanca medida sobre as receitas do periodo.</div>
+        <div class="premium-stat-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ kpis.net_result | currency }}</div>
+        <div class="premium-stat-copy">{{ health_copy }}</div>
         <div class="premium-stat-footer">
           <div class="premium-stat-line"><span style="width:{{ [kpis.savings_rate, 100]|min if kpis.savings_rate > 0 else 6 }}%"></span></div>
           <span class="soft-badge {{ 'positive' if kpis.net_result >= 0 else 'negative' }}">
@@ -788,9 +825,9 @@
         <div class="premium-stat-header">
           <div>
             <div class="premium-stat-label">Receitas do mes</div>
-            <div class="premium-stat-copy">Entradas que sustentam seu saldo e sua margem.</div>
+            <div class="premium-stat-copy">Entradas que sustentam seu saldo disponivel.</div>
           </div>
-          <span class="premium-stat-badge positive">Fluxo de entrada</span>
+          <span class="premium-stat-badge positive">Entradas</span>
         </div>
         <div class="premium-stat-value" style="color:var(--green)">{{ kpis.total_income | currency }}</div>
         <div class="premium-stat-copy">
@@ -810,7 +847,7 @@
         <div class="premium-stat-header">
           <div>
             <div class="premium-stat-label">Despesas do mes</div>
-            <div class="premium-stat-copy">Saidas que merecem mais atencao nas proximas decisoes.</div>
+            <div class="premium-stat-copy">Saidas que pressionam o seu caixa.</div>
           </div>
           <span class="premium-stat-badge {{ 'warning' if kpis.total_income >= kpis.total_expenses else 'negative' }}">
             {{ 'Sob controle' if kpis.total_income >= kpis.total_expenses else 'Acima da receita' }}
@@ -835,11 +872,38 @@
       </article>
     </div>
 
+    <article class="card" style="padding:16px 18px;border-radius:20px">
+      <div class="section-head" style="margin-bottom:12px">
+        <div>
+          <div class="section-title-premium">Mapa do painel</div>
+          <div class="section-subtitle">Leitura direta dos blocos da sidebar para acelerar decisao.</div>
+        </div>
+      </div>
+      <div class="mental-map">
+        <div class="mental-node">
+          <div class="mental-node-title">Movimentacao</div>
+          <div class="mental-node-copy">{{ recent_txs|length }} transacoes recentes na linha de frente.</div>
+        </div>
+        <div class="mental-node">
+          <div class="mental-node-title">Estrutura</div>
+          <div class="mental-node-copy">{{ accounts|length }} contas compondo saldo disponivel.</div>
+        </div>
+        <div class="mental-node">
+          <div class="mental-node-title">Planejamento</div>
+          <div class="mental-node-copy">{{ goals|length }} metas monitoradas no periodo.</div>
+        </div>
+        <div class="mental-node">
+          <div class="mental-node-title">Inteligencia</div>
+          <div class="mental-node-copy">{{ insight_count }} sinais ativos para orientar sua proxima acao.</div>
+        </div>
+      </div>
+    </article>
+
     <article class="chart-panel">
       <div class="section-head">
         <div>
           <div class="section-title-premium">Visao Mensal</div>
-          <div class="section-subtitle">Receitas, despesas e saldo liquido em uma leitura mais narrativa do periodo.</div>
+          <div class="section-subtitle">Receitas vs Despesas</div>
         </div>
         <span class="soft-badge neutral">{{ evolution|length }} meses acompanhados</span>
       </div>
@@ -856,7 +920,7 @@
           <div class="chart-kpi-value">{{ kpis.total_expenses | currency }}</div>
         </div>
         <div class="chart-kpi">
-          <div class="chart-kpi-label">Saldo liquido</div>
+          <div class="chart-kpi-label">{{ 'Voce economizou este mes' if kpis.net_result >= 0 else 'Voce gastou mais do que ganhou' }}</div>
           <div class="chart-kpi-value" style="color:{% if kpis.net_result >= 0 %}var(--green){% else %}var(--red){% endif %}">
             {{ kpis.net_result | currency }}
           </div>
@@ -879,8 +943,13 @@
           {% for tx in recent_txs %}
             {% if tx_group.last_date != tx.date %}
               {% if not loop.first %}</div>{% endif %}
-              <div class="tx-group">
-                <div class="tx-group-label">{{ tx.date | date_br }}</div>
+            <div class="tx-group">
+                <div class="tx-group-label">
+                  {% if tx.date == today_iso %}Hoje
+                  {% elif tx.date == yesterday_iso %}Ontem
+                  {% else %}{{ tx.date | date_br }}
+                  {% endif %}
+                </div>
               {% set tx_group.last_date = tx.date %}
             {% endif %}
             <div class="premium-tx-row">
@@ -1001,7 +1070,7 @@
       <div class="side-card-head">
         <div>
           <div class="side-card-title">Insights & Alertas</div>
-          <div class="side-card-subtitle">Leituras inteligentes para agir antes do problema crescer.</div>
+          <div class="side-card-subtitle">Sinais acionaveis para decidir agora.</div>
         </div>
         <span class="side-pill {{ 'warning' if insight_count else 'neutral' }}">{{ insight_count }} sinais</span>
       </div>
@@ -1049,8 +1118,22 @@
       </div>
       {% else %}
       <div class="empty-premium" style="margin-top:18px">
-        <div class="empty-premium-title">Sem alertas relevantes por enquanto.</div>
-        <div class="empty-premium-copy">Quando houver variacoes que merecem atencao, esta area destaca o que realmente importa.</div>
+        <div class="empty-premium-title">
+          {% if categories and categories|length %}
+          Voce gastou {{ categories[0].percentage }}% em {{ categories[0].name|lower }}.
+          {% else %}
+          Sem alertas relevantes por enquanto.
+          {% endif %}
+        </div>
+        <div class="empty-premium-copy">
+          {% if kpis.total_income > 0 and spend_ratio > 100 %}
+          Seu gasto total esta acima da receita do mes e pede ajuste imediato.
+          {% elif kpis.total_income > 0 and spend_ratio > 80 %}
+          Seu gasto total esta alto para o periodo e merece atencao.
+          {% else %}
+          Continue monitorando para manter seu ritmo financeiro saudavel.
+          {% endif %}
+        </div>
       </div>
       {% endif %}
     </article>
@@ -1072,7 +1155,12 @@
           <div class="bill-card-top">
             <div>
               <div class="bill-name">{{ card.name }}</div>
-              <div class="bill-due">Vencimento todo dia {{ card.due_day }}</div>
+              <div class="bill-due">
+                {% if card.due_day <= 3 %}Cartao vence em ate 3 dias
+                {% elif card.due_day <= 7 %}Cartao vence nesta semana
+                {% else %}Vencimento dia {{ card.due_day }}
+                {% endif %}
+              </div>
             </div>
             <span class="soft-badge {{ 'negative' if pct >= 80 else 'warning' if pct >= 60 else 'positive' }}">
               {{ pct }}% usado

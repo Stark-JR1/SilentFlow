@@ -90,6 +90,8 @@ async def dashboard(request: Request, user: dict = Depends(require_auth)):
         "insights":     insights,
         "alerts":       alerts,
         "month":        month,
+        "today_iso":    date.today().isoformat(),
+        "yesterday_iso": (date.today() - relativedelta(days=1)).isoformat(),
         "fmt":          fmt_currency,
     })
 
@@ -297,6 +299,19 @@ async def imports_page(request: Request, user: dict = Depends(require_auth)):
         "user": user,
         "supported_banks": ["Bradesco", "C6 Bank", "Sicoob", "Inter", "Nubank"],
         "supported_formats": ["XML", "OFX", "CSV", "PDF"],
+    })
+
+
+# ---- PROFILE -----------------------------------------------
+
+@router.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request, user: dict = Depends(require_auth)):
+    client = get_authed_client(request)
+    profile = db.get_user_profile(client, user)
+    return templates.TemplateResponse(request, "pages/profile.html", {
+        "request": request,
+        "user": user,
+        "profile": profile,
     })
 
 

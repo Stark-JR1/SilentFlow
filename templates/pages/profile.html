@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% set active_page = "profile" %}
+{% block title %}Perfil - FinTrack Pro{% endblock %}
+{% block page_title %}Perfil{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:24px;margin-bottom:16px;border-radius:24px">
+  <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em">Perfil</div>
+  <div class="text-muted" style="margin-top:4px">Conta, preferências e segurança</div>
+</div>
+
+<div class="grid-2" style="align-items:start">
+  <div class="card" style="border-radius:22px;padding:22px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="avatar" style="width:52px;height:52px;font-size:15px">{{ (profile.full_name or user.full_name or 'U')[:2].upper() }}</div>
+      <div>
+        <div style="font-size:18px;font-weight:700">{{ profile.full_name or user.full_name or "Usuário" }}</div>
+        <div class="text-muted" style="font-size:12px">{{ profile.email or user.email }}</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div style="display:grid;gap:10px">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px">
+        <span class="text-muted">Status da conta</span>
+        <span class="badge badge-income">{{ profile.account_status or "Conta principal ativa" }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px">
+        <span class="text-muted">ID do usuário</span>
+        <span class="mono" style="font-size:11px">{{ user.id }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="border-radius:22px;padding:22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:16px;font-weight:700">Segurança</div>
+        <div class="text-muted" style="font-size:12px;margin-top:4px">Troca de senha via fluxo seguro</div>
+      </div>
+      <span class="badge badge-personal">Protegido</span>
+    </div>
+    <div class="divider"></div>
+    <div style="display:grid;gap:10px">
+      <button class="btn btn-ghost" type="button" onclick="requestPasswordReset()" style="justify-content:center">Enviar link de redefinição</button>
+      <a class="btn btn-ghost" href="/auth/reset-password" style="justify-content:center">Abrir tela de redefinição</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;border-radius:22px;padding:22px">
+  <div style="font-size:16px;font-weight:700;margin-bottom:14px">Dados pessoais</div>
+  <div id="profile-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px"></div>
+  <div id="profile-success" style="display:none;color:var(--green);font-size:12px;margin-bottom:10px"></div>
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label">Nome completo</label>
+      <input id="profile-full-name" class="form-input" value="{{ profile.full_name or user.full_name or '' }}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input id="profile-email" class="form-input" value="{{ profile.email or user.email or '' }}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Telefone</label>
+      <input id="profile-phone" class="form-input" value="{{ profile.phone or '' }}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nome de exibição</label>
+      <input id="profile-display-name" class="form-input" value="{{ profile.display_name or '' }}" />
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;border-radius:22px;padding:22px">
+  <div style="font-size:16px;font-weight:700;margin-bottom:14px">Preferências</div>
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label">Moeda padrão</label>
+      <select id="profile-currency" class="form-select">
+        <option value="BRL" {% if (profile.currency or 'BRL') == 'BRL' %}selected{% endif %}>BRL</option>
+        <option value="USD" {% if profile.currency == 'USD' %}selected{% endif %}>USD</option>
+        <option value="EUR" {% if profile.currency == 'EUR' %}selected{% endif %}>EUR</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fuso horário</label>
+      <select id="profile-timezone" class="form-select">
+        <option value="America/Sao_Paulo" {% if (profile.timezone or 'America/Sao_Paulo') == 'America/Sao_Paulo' %}selected{% endif %}>America/Sao_Paulo</option>
+        <option value="UTC" {% if profile.timezone == 'UTC' %}selected{% endif %}>UTC</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Início da semana</label>
+      <select id="profile-week-start" class="form-select">
+        <option value="monday" {% if (profile.week_start or 'monday') == 'monday' %}selected{% endif %}>Segunda-feira</option>
+        <option value="sunday" {% if profile.week_start == 'sunday' %}selected{% endif %}>Domingo</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ambiente padrão</label>
+      <select id="profile-default-scope" class="form-select">
+        <option value="personal" {% if (profile.default_scope or 'personal') == 'personal' %}selected{% endif %}>Pessoal</option>
+        <option value="shared" {% if profile.default_scope == 'shared' %}selected{% endif %}>Família</option>
+      </select>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+    <button type="button" class="btn btn-ghost" onclick="window.location.reload()">Cancelar</button>
+    <button id="profile-save-btn" type="button" class="btn btn-primary" onclick="saveProfile()">Salvar alterações</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function requestPasswordReset() {
+  try {
+    const response = await fetch('/api/profile/password-reset', { method: 'POST' });
+    const result = await response.json();
+    if (!response.ok) {
+      showToast(result.detail || 'Não foi possível iniciar redefinição.', 'error');
+      return;
+    }
+    showToast(result.message || 'Email enviado com sucesso.', 'success');
+  } catch (_) {
+    showToast('Falha de conexão ao iniciar redefinição de senha.', 'error');
+  }
+}
+
+async function saveProfile() {
+  const errorEl = document.getElementById('profile-error');
+  const successEl = document.getElementById('profile-success');
+  const saveBtn = document.getElementById('profile-save-btn');
+  errorEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  const payload = {
+    full_name: document.getElementById('profile-full-name').value.trim(),
+    email: document.getElementById('profile-email').value.trim(),
+    phone: document.getElementById('profile-phone').value.trim() || null,
+    display_name: document.getElementById('profile-display-name').value.trim() || null,
+    currency: document.getElementById('profile-currency').value,
+    timezone: document.getElementById('profile-timezone').value,
+    week_start: document.getElementById('profile-week-start').value,
+    default_scope: document.getElementById('profile-default-scope').value,
+  };
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando...';
+  try {
+    const response = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      errorEl.textContent = result.detail || 'Erro ao salvar perfil.';
+      errorEl.style.display = 'block';
+      showToast(result.detail || 'Erro ao salvar perfil.', 'error');
+      return;
+    }
+    successEl.textContent = 'Perfil atualizado com sucesso.';
+    successEl.style.display = 'block';
+    showToast('Perfil atualizado.', 'success');
+    setTimeout(() => window.location.reload(), 600);
+  } catch (_) {
+    errorEl.textContent = 'Erro de conexão ao salvar perfil.';
+    errorEl.style.display = 'block';
+    showToast('Erro de conexão ao salvar perfil.', 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Salvar alterações';
+  }
+}
+</script>
+{% endblock %}

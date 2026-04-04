@@ -5,6 +5,8 @@ Routers call these functions; they never touch Supabase directly.
 from supabase import Client
 from datetime import date, datetime
 from typing import Optional
+import logging
+import re
 from app.core.supabase import get_admin_supabase
 from app.utils.helpers import get_month_range, next_recurrence_date
 import uuid
@@ -14,6 +16,7 @@ from calendar import monthrange
 PAYMENT_METHODS = {"account", "pix", "card", "boleto", "cash"}
 TRANSACTION_STATUSES = {"paid", "pending", "scheduled", "cancelled"}
 INVOICE_STATUSES = {"open", "closed", "partially_paid", "paid", "overdue"}
+logger = logging.getLogger(__name__)
 
 
 def _to_iso_date(value):
@@ -39,25 +42,132 @@ def _normalize_card_id(payload: dict) -> str | None:
     return payload.get("card_id") or payload.get("credit_card_id")
 
 
+def _extract_missing_column_from_error(exc: Exception) -> str | None:
+    message = str(exc or "")
+    patterns = [
+        r"Could not find the '([^']+)' column",
+        r"column\s+([a-zA-Z0-9_.]+)\s+does not exist",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, message, flags=re.IGNORECASE)
+        if not match:
+            continue
+        col = match.group(1)
+        if "." in col:
+            col = col.split(".")[-1]
+        return col
+    return None
+
+
+def _is_permission_error(exc: Exception) -> bool:
+    message = str(exc or "").lower()
+    return (
+        "permission denied" in message
+        or "row-level security" in message
+        or "violates row-level security" in message
+        or "not allowed" in message
+        or "forbidden" in message
+    )
+
+
+def _insert_transactions_with_schema_fallback(client: Client, payload: dict | list[dict]):
+    current_payload = payload
+    while True:
+        try:
+            return client.table("transactions").insert(current_payload).execute()
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if not missing_col:
+                raise
+            if isinstance(current_payload, list):
+                current_payload = [
+                    {k: v for k, v in item.items() if k != missing_col}
+                    for item in current_payload
+                ]
+            else:
+                current_payload = {
+                    k: v for k, v in current_payload.items() if k != missing_col
+                }
+
+
+def _update_transaction_with_schema_fallback(
+    client: Client, id_: str, user_id: str, payload: dict
+):
+    current_payload = dict(payload or {})
+    while True:
+        try:
+            return (
+                client.table("transactions")
+                .update(current_payload)
+                .eq("id", id_)
+                .eq("user_id", user_id)
+                .select("*")
+                .execute()
+            )
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if not missing_col:
+                raise
+            current_payload = {
+                k: v for k, v in current_payload.items() if k != missing_col
+            }
+            if not current_payload:
+                raise
+
+
 def _normalize_transaction_payload(payload: dict) -> dict:
     data = dict(payload)
+    tx_type = data.get("type")
+    if hasattr(tx_type, "value"):
+        tx_type = tx_type.value
+    if tx_type is not None:
+        data["type"] = str(tx_type)
+
+    scope = data.get("scope")
+    if hasattr(scope, "value"):
+        scope = scope.value
+    if scope is not None:
+        data["scope"] = str(scope)
+
+    if data.get("account_id") == "__card__":
+        data["account_id"] = None
+        if not data.get("payment_method"):
+            data["payment_method"] = "card"
+        elif hasattr(data.get("payment_method"), "value"):
+            if data["payment_method"].value in {"account", "pix", "cash"}:
+                data["payment_method"] = "card"
+        elif str(data.get("payment_method") or "").strip().lower() in {"", "account", "pix", "cash"}:
+            data["payment_method"] = "card"
+
     data["date"] = _to_iso_date(data.get("date"))
     data["due_date"] = _to_iso_date(data.get("due_date"))
     paid_at = data.get("paid_at")
     if isinstance(paid_at, datetime):
         data["paid_at"] = paid_at.isoformat()
 
-    payment_method = str(data.get("payment_method") or "account")
+    raw_payment_method = data.get("payment_method")
+    if hasattr(raw_payment_method, "value"):
+        raw_payment_method = raw_payment_method.value
+    payment_method = str(raw_payment_method or "account").strip().lower()
+    payment_alias = {
+        "other": "account",
+        "outro": "account",
+        "debit": "account",
+        "debito": "account",
+        "débito": "account",
+        "credit": "card",
+        "credito": "card",
+        "crédito": "card",
+    }
+    payment_method = payment_alias.get(payment_method, payment_method)
     if payment_method not in PAYMENT_METHODS:
         payment_method = "account"
     data["payment_method"] = payment_method
 
     card_id = _normalize_card_id(data)
     if card_id:
-        data["card_id"] = card_id
         data["credit_card_id"] = card_id
     else:
-        data["card_id"] = None
         data["credit_card_id"] = None
 
     installment_total = data.get("installment_total") or data.get("total_installments")
@@ -80,11 +190,10 @@ def _normalize_transaction_payload(payload: dict) -> dict:
     if payment_method in {"account", "pix", "cash"}:
         if not data.get("account_id"):
             raise ValueError("account_id obrigatorio para conta, pix ou dinheiro.")
-        data["card_id"] = None
         data["credit_card_id"] = None
         data["invoice_id"] = None
     elif payment_method == "card":
-        if not data.get("card_id"):
+        if not data.get("credit_card_id"):
             raise ValueError("card_id obrigatorio para compras no cartao.")
         data["account_id"] = data.get("account_id") or None
         data["status"] = status if status in {"paid", "scheduled"} else "paid"
@@ -96,6 +205,9 @@ def _normalize_transaction_payload(payload: dict) -> dict:
 
     if data.get("type") == "income" and payment_method == "card":
         raise ValueError("Receita nao pode usar cartao de credito como forma de recebimento padrao.")
+
+    # Compat: o front pode enviar card_id, mas a tabela transactions usa credit_card_id.
+    data.pop("card_id", None)
 
     return data
 
@@ -122,14 +234,53 @@ def _adjust_account_balance(client: Client, account_id: str, delta: float) -> di
     if not row:
         return None
     new_balance = round(float(row.get("current_balance") or 0) + float(delta), 2)
-    resp = (
+    update_query = (
         client.table("accounts")
         .update({"current_balance": new_balance})
         .eq("id", account_id)
-        .select("*")
-        .execute()
     )
-    return resp.data[0] if resp.data else None
+    if hasattr(update_query, "select"):
+        try:
+            resp = update_query.select("*").execute()
+            if resp.data:
+                return resp.data[0]
+        except Exception:
+            pass
+    else:
+        update_query.execute()
+
+    # Fallback: read current row after update for compatibility with clients
+    # that do not support `.select()` chained to update.
+    try:
+        refreshed = (
+            client.table("accounts")
+            .select("id,current_balance")
+            .eq("id", account_id)
+            .maybe_single()
+            .execute()
+        )
+        return refreshed.data if refreshed else {"id": account_id, "current_balance": new_balance}
+    except Exception:
+        return {"id": account_id, "current_balance": new_balance}
+
+
+def _get_account_balance(client: Client, account_id: str | None) -> float | None:
+    if not account_id:
+        return None
+    try:
+        current = (
+            client.table("accounts")
+            .select("id,current_balance")
+            .eq("id", account_id)
+            .maybe_single()
+            .execute()
+        )
+        row = current.data if current else None
+        if not row:
+            return None
+        return float(row.get("current_balance") or 0)
+    except Exception:
+        return None
 
 
 def _find_card(client: Client, user_id: str, card_id: str) -> dict | None:
@@ -148,6 +299,20 @@ def _find_card(client: Client, user_id: str, card_id: str) -> dict | None:
         except Exception:
             continue
     return None
+
+
+def _invoice_card_field(client: Client) -> str:
+    for field in ("card_id", "credit_card_id"):
+        try:
+            client.table("card_invoices").select(f"id,{field}").limit(1).execute()
+            return field
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if missing_col == field:
+                continue
+            # If it's another error (permissions, table not found, etc.), keep default.
+            return "card_id"
+    return "card_id"
 
 
 def _invoice_status(total_amount: float, paid_amount: float, due_date_value: str | date | None) -> str:
@@ -169,6 +334,7 @@ def _invoice_status(total_amount: float, paid_amount: float, due_date_value: str
 
 
 def _ensure_invoice(client: Client, user_id: str, card: dict, tx_date: date) -> dict:
+    card_field = _invoice_card_field(client)
     closing_day = int(card.get("closing_day") or 1)
     due_day = int(card.get("due_day") or closing_day)
     reference_month = _month_first(tx_date.year, tx_date.month)
@@ -179,7 +345,7 @@ def _ensure_invoice(client: Client, user_id: str, card: dict, tx_date: date) -> 
     existing = (
         client.table("card_invoices")
         .select("*")
-        .eq("card_id", card["id"])
+        .eq(card_field, card["id"])
         .eq("reference_month", reference_iso)
         .maybe_single()
         .execute()
@@ -191,7 +357,7 @@ def _ensure_invoice(client: Client, user_id: str, card: dict, tx_date: date) -> 
     due_date_value = _safe_day(reference_month.year, reference_month.month, due_day)
     record = {
         "user_id": user_id,
-        "card_id": card["id"],
+        card_field: card["id"],
         "reference_month": reference_iso,
         "closing_date": closing_date.isoformat(),
         "due_date": due_date_value.isoformat(),
@@ -204,12 +370,13 @@ def _ensure_invoice(client: Client, user_id: str, card: dict, tx_date: date) -> 
 
 
 def _refresh_card_available_limit(client: Client, card: dict, invoice: dict) -> None:
+    card_field = _invoice_card_field(client)
     table_name = "credit_cards" if card.get("credit_limit") is not None else "cards"
     limit_value = float(card.get("limit_amount") or card.get("credit_limit") or 0)
     invoices_resp = (
         client.table("card_invoices")
         .select("total_amount,paid_amount")
-        .eq("card_id", card["id"])
+        .eq(card_field, card["id"])
         .eq("user_id", card["user_id"])
         .execute()
     )
@@ -225,7 +392,8 @@ def _refresh_card_available_limit(client: Client, card: dict, invoice: dict) -> 
 
 
 def _add_transaction_to_invoice(client: Client, user_id: str, tx_record: dict) -> dict:
-    card = _find_card(client, user_id, tx_record["card_id"])
+    tx_card_id = _normalize_card_id(tx_record)
+    card = _find_card(client, user_id, tx_card_id) if tx_card_id else None
     if not card:
         raise ValueError("Cartao nao encontrado.")
     tx_date = date.fromisoformat(str(tx_record["date"])[:10])
@@ -252,8 +420,12 @@ def _add_transaction_to_invoice(client: Client, user_id: str, tx_record: dict) -
     return tx_resp.data[0] if tx_resp.data else {**tx_record, "invoice_id": updated_invoice["id"]}
 
 
-def _apply_transaction_financial_impact(client: Client, user_id: str, tx_record: dict) -> dict:
-    payment_method = tx_record.get("payment_method") or "account"
+def _apply_transaction_financial_impact(
+    client: Client, user_id: str, tx_record: dict, skip_account_adjustment: bool = False
+) -> dict:
+    payment_method = (tx_record.get("payment_method") or "account")
+    if payment_method in {"other", "outro", "debit", "debito", "débito"}:
+        payment_method = "account"
     tx_type = tx_record.get("type")
     amount = float(tx_record.get("amount") or 0)
     status = tx_record.get("status") or "paid"
@@ -268,11 +440,11 @@ def _apply_transaction_financial_impact(client: Client, user_id: str, tx_record:
         return tx_record
 
     if tx_type == "transfer" and tx_record.get("account_id") and tx_record.get("to_account_id"):
-        _adjust_account_balance(client, tx_record["account_id"], -amount)
-        _adjust_account_balance(client, tx_record["to_account_id"], amount)
+        _adjust_account_balance(client, tx_record.get("account_id"), -amount)
+        _adjust_account_balance(client, tx_record.get("to_account_id"), amount)
         return tx_record
 
-    if payment_method in {"account", "pix", "cash"}:
+    if payment_method in {"account", "pix", "cash"} and not skip_account_adjustment:
         _adjust_account_balance(client, tx_record.get("account_id"), _signed_amount(tx_type, amount))
     return tx_record
 
@@ -351,11 +523,34 @@ def get_month_transactions(client: Client, user_id: str, month: date) -> list:
 def create_transaction(client: Client, user_id: str, data: dict) -> dict:
     normalized = _normalize_transaction_payload(data)
     normalized["user_id"] = user_id
-    resp = client.table("transactions").insert(normalized).execute()
+    payment_method = normalized.get("payment_method")
+    tx_type = normalized.get("type")
+    status = normalized.get("status")
+    account_id = normalized.get("account_id")
+    should_detect_external_balance = (
+        payment_method in {"account", "pix", "cash"}
+        and tx_type in {"income", "expense"}
+        and status == "paid"
+        and bool(account_id)
+    )
+    before_balance = _get_account_balance(client, account_id) if should_detect_external_balance else None
+
+    resp = _insert_transactions_with_schema_fallback(client, normalized)
     record = resp.data[0] if resp.data else {}
     if not record:
         return {}
-    return _apply_transaction_financial_impact(client, user_id, record)
+
+    skip_adjustment = False
+    if should_detect_external_balance and before_balance is not None:
+        after_balance = _get_account_balance(client, account_id)
+        if after_balance is not None:
+            expected_after = round(before_balance + _signed_amount(tx_type, float(normalized.get("amount") or 0)), 2)
+            if abs(round(after_balance, 2) - expected_after) < 0.01:
+                skip_adjustment = True
+
+    return _apply_transaction_financial_impact(
+        client, user_id, record, skip_account_adjustment=skip_adjustment
+    )
 
 
 def create_installment_transactions(
@@ -365,6 +560,17 @@ def create_installment_transactions(
     normalized = _normalize_transaction_payload(data)
     start_date = normalized["date"] if isinstance(normalized["date"], date) else date.fromisoformat(normalized["date"])
     records    = []
+    payment_method = normalized.get("payment_method")
+    tx_type = normalized.get("type")
+    status = normalized.get("status")
+    account_id = normalized.get("account_id")
+    should_detect_external_balance = (
+        payment_method in {"account", "pix", "cash"}
+        and tx_type in {"income", "expense"}
+        and status == "paid"
+        and bool(account_id)
+    )
+    before_balance = _get_account_balance(client, account_id) if should_detect_external_balance else None
 
     for i in range(total_installments):
         from dateutil.relativedelta import relativedelta
@@ -381,22 +587,53 @@ def create_installment_transactions(
         }
         records.append(record)
 
-    resp = client.table("transactions").insert(records).execute()
+    resp = _insert_transactions_with_schema_fallback(client, records)
     saved = resp.data or []
-    return [_apply_transaction_financial_impact(client, user_id, item) for item in saved]
+    skip_adjustment = False
+    if should_detect_external_balance and before_balance is not None:
+        after_balance = _get_account_balance(client, account_id)
+        if after_balance is not None:
+            total_delta = sum(
+                _signed_amount(tx_type, float(item.get("amount") or 0))
+                for item in saved
+            )
+            expected_after = round(before_balance + total_delta, 2)
+            if abs(round(after_balance, 2) - expected_after) < 0.01:
+                skip_adjustment = True
+
+    return [
+        _apply_transaction_financial_impact(
+            client, user_id, item, skip_account_adjustment=skip_adjustment
+        )
+        for item in saved
+    ]
 
 
 def update_transaction(client: Client, id_: str, user_id: str, data: dict) -> dict:
+    data = dict(data or {})
     if "date" in data and isinstance(data["date"], date):
         data["date"] = data["date"].isoformat()
-    resp = (
-        client.table("transactions")
-        .update(data)
-        .eq("id", id_)
-        .eq("user_id", user_id)
-        .select("*")
-        .execute()
-    )
+    if "payment_method" in data:
+        raw_method = str(data.get("payment_method") or "account").strip().lower()
+        method_alias = {
+            "other": "account",
+            "outro": "account",
+            "debit": "account",
+            "debito": "account",
+            "débito": "account",
+            "credit": "card",
+            "credito": "card",
+            "crédito": "card",
+        }
+        data["payment_method"] = method_alias.get(raw_method, raw_method)
+        if data["payment_method"] not in PAYMENT_METHODS:
+            data["payment_method"] = "account"
+    if "card_id" in data:
+        data["credit_card_id"] = data.get("card_id")
+        data.pop("card_id", None)
+    if data.get("payment_method") in {"account", "pix", "cash", "boleto"}:
+        data["credit_card_id"] = None
+    resp = _update_transaction_with_schema_fallback(client, id_, user_id, data)
     return resp.data[0] if resp.data else {}
 
 
@@ -456,7 +693,7 @@ def pay_invoice(
     )
     updated = resp.data[0] if resp.data else {**invoice, "paid_amount": paid_amount, "status": status}
 
-    card = _find_card(client, user_id, updated.get("card_id"))
+    card = _find_card(client, user_id, _normalize_card_id(updated))
     if card:
         remaining_total = max(round(total_amount - paid_amount, 2), 0)
         merged_invoice = {**updated, "total_amount": remaining_total}
@@ -489,18 +726,16 @@ def settle_boleto(
         return tx
 
     paid_at = datetime.combine(payment_date, datetime.min.time()).isoformat()
-    resp = (
-        client.table("transactions")
-        .update({
+    resp = _update_transaction_with_schema_fallback(
+        client,
+        transaction_id,
+        user_id,
+        {
             "status": "paid",
             "paid_at": paid_at,
             "account_id": account_id,
             "notes": notes or tx.get("notes"),
-        })
-        .eq("id", transaction_id)
-        .eq("user_id", user_id)
-        .select("*")
-        .execute()
+        },
     )
     updated = resp.data[0] if resp.data else {**tx, "status": "paid", "paid_at": paid_at, "account_id": account_id}
     _adjust_account_balance(client, account_id, _signed_amount(updated.get("type"), float(updated.get("amount") or 0)))
@@ -529,6 +764,144 @@ def create_account(client: Client, user_id: str, data: dict) -> dict:
     return resp.data[0] if resp.data else {}
 
 
+def update_account(client: Client, account_id: str, user_id: str, data: dict) -> dict:
+    allowed = {
+        "name",
+        "type",
+        "bank_name",
+        "icon",
+        "color",
+        "initial_balance",
+        "current_balance",
+        "is_shared",
+        "is_active",
+        "include_in_total",
+    }
+    payload = {k: v for k, v in (data or {}).items() if k in allowed}
+    if not payload:
+        return {}
+
+    def _run_update(target_client: Client, update_payload: dict) -> dict:
+        current_payload = dict(update_payload)
+        while current_payload:
+            try:
+                resp = (
+                    target_client.table("accounts")
+                    .update(current_payload)
+                    .eq("id", account_id)
+                    .eq("user_id", user_id)
+                    .select("*")
+                    .execute()
+                )
+                return resp.data[0] if resp.data else {}
+            except Exception as exc:
+                missing_col = _extract_missing_column_from_error(exc)
+                if missing_col:
+                    current_payload.pop(missing_col, None)
+                    continue
+                raise
+        return {}
+
+    try:
+        result = _run_update(client, payload)
+        if result:
+            return result
+    except Exception as exc:
+        if not _is_permission_error(exc):
+            raise
+
+    admin = get_admin_supabase()
+    return _run_update(admin, payload)
+
+
+def delete_account(client: Client, account_id: str, user_id: str) -> bool:
+    def _is_still_visible(target_client: Client) -> bool:
+        try:
+            return any(str(acc.get("id")) == str(account_id) for acc in get_accounts(target_client, user_id))
+        except Exception:
+            try:
+                resp = (
+                    target_client.table("accounts")
+                    .select("id")
+                    .eq("id", account_id)
+                    .eq("user_id", user_id)
+                    .limit(1)
+                    .execute()
+                )
+                return bool(resp.data)
+            except Exception:
+                return True
+
+    payload_variants = [
+        {"is_active": False, "include_in_total": False, "deleted_at": datetime.utcnow().isoformat()},
+        {"is_active": False, "include_in_total": False},
+        {"is_active": False},
+        {"include_in_total": False},
+        {"deleted_at": datetime.utcnow().isoformat()},
+        {"active": False, "deleted_at": datetime.utcnow().isoformat()},
+        {"active": False},
+    ]
+    def _attempt_delete(target_client: Client) -> bool:
+        updated = False
+        for payload in payload_variants:
+            current_payload = dict(payload)
+            while current_payload:
+                try:
+                    query = (
+                        target_client.table("accounts")
+                        .update(current_payload)
+                        .eq("id", account_id)
+                        .eq("user_id", user_id)
+                    )
+                    if "deleted_at" in current_payload:
+                        query = query.is_("deleted_at", "null")
+                    resp = query.select("id").execute()
+                    if resp.data:
+                        updated = True
+                        break
+                    break
+                except Exception as exc:
+                    missing_col = _extract_missing_column_from_error(exc)
+                    if not missing_col:
+                        break
+                    current_payload.pop(missing_col, None)
+            if updated:
+                break
+
+        if updated and not _is_still_visible(target_client):
+            return True
+
+        try:
+            resp = (
+                target_client.table("accounts")
+                .delete()
+                .eq("id", account_id)
+                .eq("user_id", user_id)
+                .select("id")
+                .execute()
+            )
+            if resp.data:
+                return True
+        except Exception:
+            pass
+        return not _is_still_visible(target_client)
+
+    try:
+        if _attempt_delete(client):
+            return True
+    except Exception:
+        pass
+
+    admin = get_admin_supabase()
+    try:
+        if _attempt_delete(admin):
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
 def get_consolidated_balance(client: Client, user_id: str) -> float:
     accounts = get_accounts(client, user_id)
     return sum(
@@ -536,6 +909,124 @@ def get_consolidated_balance(client: Client, user_id: str) -> float:
         for a in accounts
         if a.get("include_in_total", True)
     )
+
+
+def get_user_profile(client: Client, user: dict) -> dict:
+    user_id = user.get("id")
+    base = {
+        "id": user_id,
+        "email": user.get("email") or "",
+        "full_name": user.get("full_name") or "",
+        "display_name": user.get("full_name") or "",
+        "phone": "",
+        "currency": "BRL",
+        "timezone": "America/Sao_Paulo",
+        "week_start": "monday",
+        "default_scope": "personal",
+        "avatar_url": None,
+        "account_status": "Conta principal ativa",
+    }
+    if not user_id:
+        return base
+
+    try:
+        resp = (
+            client.table("profiles")
+            .select("*")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        row = resp.data if resp else None
+        if not row:
+            return base
+        merged = {**base}
+        for key in ("full_name", "display_name", "phone", "currency", "timezone", "avatar_url"):
+            if row.get(key) is not None:
+                merged[key] = row.get(key)
+        if row.get("email"):
+            merged["email"] = row.get("email")
+        if row.get("week_start"):
+            merged["week_start"] = str(row.get("week_start")).lower()
+        if row.get("default_scope"):
+            merged["default_scope"] = str(row.get("default_scope")).lower()
+        return merged
+    except Exception as exc:
+        logger.warning("Profile load fallback for user %s: %s", user_id, exc)
+        return base
+
+
+def update_user_profile(client: Client, user: dict, payload: dict) -> dict:
+    user_id = user.get("id")
+    if not user_id:
+        raise ValueError("Usuario invalido.")
+
+    current = get_user_profile(client, user)
+    allowed = {
+        "full_name",
+        "email",
+        "phone",
+        "display_name",
+        "currency",
+        "timezone",
+        "week_start",
+        "default_scope",
+    }
+    clean = {
+        key: value
+        for key, value in (payload or {}).items()
+        if key in allowed and value is not None
+    }
+    merged = {**current, **clean}
+
+    profile_payload = {
+        "id": user_id,
+        "full_name": merged.get("full_name") or user.get("full_name") or "",
+        "display_name": merged.get("display_name") or merged.get("full_name") or "",
+        "phone": merged.get("phone") or None,
+        "currency": (merged.get("currency") or "BRL").upper(),
+        "timezone": merged.get("timezone") or "America/Sao_Paulo",
+        "week_start": (merged.get("week_start") or "monday").lower(),
+        "default_scope": (merged.get("default_scope") or "personal").lower(),
+    }
+    current_payload = dict(profile_payload)
+    while current_payload:
+        try:
+            client.table("profiles").upsert(current_payload).execute()
+            break
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if missing_col:
+                current_payload.pop(missing_col, None)
+                continue
+            logger.warning("Profile table update skipped for user %s: %s", user_id, exc)
+            break
+
+    email = merged.get("email") or user.get("email")
+    full_name = merged.get("full_name") or user.get("full_name") or ""
+    metadata = {"full_name": full_name}
+    admin = get_admin_supabase()
+    auth_payload = {"user_metadata": metadata}
+    if email:
+        auth_payload["email"] = email
+    try:
+        admin.auth.admin.update_user_by_id(user_id, auth_payload)
+    except Exception as exc:
+        logger.warning("Auth profile update failed for user %s: %s", user_id, exc)
+
+    return {
+        "id": user_id,
+        "full_name": full_name,
+        "email": email or "",
+        "phone": profile_payload.get("phone"),
+        "display_name": profile_payload.get("display_name"),
+        "currency": profile_payload.get("currency"),
+        "timezone": profile_payload.get("timezone"),
+        "week_start": profile_payload.get("week_start"),
+        "default_scope": profile_payload.get("default_scope"),
+        "account_status": current.get("account_status") or "Conta principal ativa",
+        "avatar_url": current.get("avatar_url"),
+    }
 
 
 # ---- CREDIT CARDS ------------------------------------------
@@ -584,6 +1075,164 @@ def create_credit_card(client: Client, user_id: str, data: dict) -> dict:
     }
     resp = client.table("credit_cards").insert(payload).execute()
     return resp.data[0] if resp.data else {}
+
+
+def update_credit_card(client: Client, card_id: str, user_id: str, data: dict) -> dict:
+    table_name = None
+    current = None
+    for candidate in ("credit_cards", "cards"):
+        try:
+            resp = (
+                client.table(candidate)
+                .select("*")
+                .eq("id", card_id)
+                .eq("user_id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            if resp and resp.data:
+                table_name = candidate
+                current = resp.data
+                break
+        except Exception:
+            continue
+    if not table_name or not current:
+        return {}
+
+    allowed = {
+        "name",
+        "bank_name",
+        "brand",
+        "last_four",
+        "network",
+        "credit_limit",
+        "limit_amount",
+        "closing_day",
+        "due_day",
+        "account_id",
+        "color_start",
+        "color_end",
+        "is_active",
+    }
+    payload = {k: v for k, v in (data or {}).items() if k in allowed}
+    if not payload:
+        return {}
+
+    if "credit_limit" in payload or "limit_amount" in payload:
+        new_limit = float(payload.get("limit_amount", payload.get("credit_limit", 0)) or 0)
+        old_limit = float(current.get("limit_amount") or current.get("credit_limit") or 0)
+        old_available = float(current.get("available_limit") or new_limit)
+        used = max(old_limit - old_available, 0)
+        payload["limit_amount"] = new_limit
+        payload["credit_limit"] = new_limit
+        payload["available_limit"] = round(max(new_limit - used, 0), 2)
+
+    current_payload = dict(payload)
+    while current_payload:
+        try:
+            resp = (
+                client.table(table_name)
+                .update(current_payload)
+                .eq("id", card_id)
+                .eq("user_id", user_id)
+                .select("*")
+                .execute()
+            )
+            return resp.data[0] if resp.data else {}
+        except Exception as exc:
+            missing_col = _extract_missing_column_from_error(exc)
+            if not missing_col:
+                raise
+            current_payload.pop(missing_col, None)
+    return {}
+
+
+def delete_credit_card(client: Client, card_id: str, user_id: str) -> bool:
+    def _is_still_visible(target_client: Client) -> bool:
+        try:
+            return any(str(card.get("id")) == str(card_id) for card in get_credit_cards(target_client, user_id))
+        except Exception:
+            for table_name in ("credit_cards", "cards"):
+                try:
+                    resp = (
+                        target_client.table(table_name)
+                        .select("id")
+                        .eq("id", card_id)
+                        .eq("user_id", user_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    if resp.data:
+                        return True
+                except Exception:
+                    continue
+            return False
+
+    payload_variants = [
+        {"is_active": False, "deleted_at": datetime.utcnow().isoformat()},
+        {"is_active": False},
+        {"deleted_at": datetime.utcnow().isoformat()},
+        {"active": False, "deleted_at": datetime.utcnow().isoformat()},
+        {"active": False},
+    ]
+    def _attempt_delete(target_client: Client) -> bool:
+        for table_name in ("credit_cards", "cards"):
+            updated = False
+            for payload in payload_variants:
+                current_payload = dict(payload)
+                while current_payload:
+                    try:
+                        query = (
+                            target_client.table(table_name)
+                            .update(current_payload)
+                            .eq("id", card_id)
+                            .eq("user_id", user_id)
+                        )
+                        if "deleted_at" in current_payload:
+                            query = query.is_("deleted_at", "null")
+                        resp = query.select("id").execute()
+                        if resp.data:
+                            updated = True
+                            break
+                        break
+                    except Exception as exc:
+                        missing_col = _extract_missing_column_from_error(exc)
+                        if not missing_col:
+                            break
+                        current_payload.pop(missing_col, None)
+                if updated:
+                    break
+            if updated and not _is_still_visible(target_client):
+                return True
+            try:
+                resp = (
+                    target_client.table(table_name)
+                    .delete()
+                    .eq("id", card_id)
+                    .eq("user_id", user_id)
+                    .select("id")
+                    .execute()
+                )
+                if resp.data:
+                    return True
+            except Exception:
+                continue
+        return not _is_still_visible(target_client)
+
+    try:
+        if _attempt_delete(client):
+            return True
+    except Exception:
+        pass
+
+    admin = get_admin_supabase()
+    try:
+        if _attempt_delete(admin):
+            return True
+    except Exception:
+        pass
+
+    return False
 
 
 # ---- CATEGORIES --------------------------------------------

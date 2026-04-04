@@ -121,7 +121,7 @@ const txIndex = (function () {
       id: "{{ tx.id }}",
       type: "{{ tx.type }}",
       description: {{ tx.description | tojson }},
-      amount: {{ tx.amount | default(0) }},
+      amount: {{ tx.amount | default(0, true) | tojson }},
       category_id: {{ tx.category_id | tojson }},
       date: "{{ tx.date }}",
       scope: "{{ tx.scope | default('personal') }}",
@@ -132,9 +132,9 @@ const txIndex = (function () {
       due_date: {{ tx.due_date | tojson }},
       status: "{{ tx.status | default('paid') }}",
       notes: {{ tx.notes | tojson }},
-      is_installment: {{ 'true' if tx.is_installment else 'false' }},
-      total_installments: {{ tx.total_installments | default(0) }},
-      installment_total: {{ tx.installment_total | default(0) }},
+      is_installment: {{ tx.is_installment | default(false, true) | tojson }},
+      total_installments: {{ tx.total_installments | default(0, true) | tojson }},
+      installment_total: {{ tx.installment_total | default(0, true) | tojson }},
     },
     {% endfor %}
   ];
@@ -146,7 +146,7 @@ let editingTxId = null;
 
 function setModalLabels(editing) {
   const title = document.querySelector('#tx-modal .modal-title');
-  const saveBtn = document.querySelector('#tx-modal .btn.btn-primary');
+  const saveBtn = document.querySelector('#tx-modal [onclick="saveTx(\'save\')"]');
   if (title) title.textContent = editing ? 'Editar Transacao' : 'Nova Transacao';
   if (saveBtn) saveBtn.textContent = editing ? 'Salvar alteracoes' : 'Salvar transacao';
 }
@@ -156,10 +156,24 @@ async function openEditTx(id) {
   if (!tx) return;
   editingTxId = id;
   setModalLabels(true);
-  resetTxSuggestion();
+  if (typeof resetTxSuggestion === 'function') {
+    resetTxSuggestion();
+  }
 
-  if (typeof loadTxModalData === 'function') {
-    await loadTxModalData();
+  // Recarrega dados apenas quando os selects estiverem vazios.
+  const categorySelect = document.getElementById('tx-category');
+  const accountSelect = document.getElementById('tx-account');
+  const needsBootstrapData =
+    !categorySelect || !accountSelect ||
+    categorySelect.options.length <= 1 ||
+    accountSelect.options.length <= 1;
+
+  if (needsBootstrapData && typeof loadTxModalData === 'function') {
+    try {
+      await loadTxModalData();
+    } catch (_error) {
+      showToast('Nao foi possivel carregar dados auxiliares do modal.', 'error');
+    }
   }
 
   const typeBtn = Array.from(document.querySelectorAll('.type-btn')).find((btn) => {
@@ -168,7 +182,7 @@ async function openEditTx(id) {
     if (tx.type === 'income') return text.includes('receita');
     return text.includes('transfer');
   });
-  if (typeBtn) setTxType(tx.type, typeBtn);
+  if (typeBtn && typeof setTxType === 'function') setTxType(tx.type, typeBtn);
 
   document.getElementById('tx-desc').value = tx.description || '';
   const amountValue = parseFloat(tx.amount || 0).toFixed(2);
@@ -183,14 +197,17 @@ async function openEditTx(id) {
   document.getElementById('tx-status').value = tx.status || 'paid';
   document.getElementById('tx-notes').value = tx.notes || '';
 
-  handlePaymentMethodChange();
+  if (typeof handlePaymentMethodChange === 'function') handlePaymentMethodChange();
   const isInstallment = Boolean(tx.is_installment);
   document.getElementById('tx-installment').checked = isInstallment;
-  toggleInstallment();
+  if (typeof toggleInstallment === 'function') toggleInstallment();
   if (isInstallment) {
     document.getElementById('tx-parcelas').value = tx.total_installments || tx.installment_total || 2;
   }
 
+  if (typeof refreshTxPreview === 'function') {
+    refreshTxPreview();
+  }
   openModal('tx-modal');
 }
 
@@ -203,16 +220,16 @@ async function deleteTx(id) {
   }
 }
 
-async function saveTx() {
+async function saveTx(action = 'save') {
   const amountRaw = document.getElementById('tx-amount').value;
   const desc      = document.getElementById('tx-desc').value.trim();
   const catId     = document.getElementById('tx-category').value;
   const date      = document.getElementById('tx-date').value;
   const errEl     = document.getElementById('tx-error');
 
-  if (!desc || !amountRaw || !catId || !date) {
+  if (!desc || !amountRaw || !date) {
     errEl.style.display = 'block';
-    errEl.textContent   = 'Preencha todos os campos obrigatorios.';
+    errEl.textContent   = 'Preencha descricao, valor e data.';
     return;
   }
   errEl.style.display = 'none';
@@ -221,39 +238,50 @@ async function saveTx() {
   const amount = parseInt(nums) / 100;
   const isInst = txPaymentMethod === 'card' && document.getElementById('tx-installment').checked;
   const parcelas = parseInt(document.getElementById('tx-parcelas').value) || 2;
-  const accountId = document.getElementById('tx-account').value || null;
+  const accountRaw = document.getElementById('tx-account').value || null;
+  const accountId = accountRaw === '__card__' ? null : accountRaw;
   const cardId = document.getElementById('tx-card').value || null;
   const dueDate = document.getElementById('tx-due-date').value || null;
   const status = document.getElementById('tx-status').value || null;
+  let normalizedPaymentMethod = txPaymentMethod === 'other' ? 'account' : txPaymentMethod;
+  if (accountRaw === '__card__') {
+    normalizedPaymentMethod = 'card';
+  }
 
-  if (['account', 'pix', 'cash'].includes(txPaymentMethod) && !accountId) {
+  if (['account', 'pix', 'cash', 'other'].includes(normalizedPaymentMethod) && !accountId) {
     errEl.style.display = 'block';
     errEl.textContent   = 'Selecione uma conta para esta forma de pagamento.';
     return;
   }
-  if (txPaymentMethod === 'card' && !cardId) {
+  if (normalizedPaymentMethod === 'card' && !cardId) {
     errEl.style.display = 'block';
     errEl.textContent   = 'Selecione um cartao.';
     return;
   }
-  if (txPaymentMethod === 'boleto' && !dueDate) {
+  if (normalizedPaymentMethod === 'boleto' && !dueDate) {
     errEl.style.display = 'block';
     errEl.textContent   = 'Informe o vencimento do boleto.';
+    return;
+  }
+
+  if (action !== 'recurring' && !catId) {
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Selecione uma categoria antes de salvar.';
     return;
   }
 
   const payload = {
     type:               txType,
     scope:              document.getElementById('tx-scope').value,
-    payment_method:     txPaymentMethod,
-    status:             txPaymentMethod === 'boleto' ? status : 'paid',
+    payment_method:     normalizedPaymentMethod,
+    status:             normalizedPaymentMethod === 'boleto' ? status : 'paid',
     description:        desc,
     amount:             amount,
     date:               date,
     category_id:        catId,
-    account_id:         txPaymentMethod === 'card' ? null : accountId,
-    card_id:            txPaymentMethod === 'card' ? cardId : null,
-    due_date:           txPaymentMethod === 'boleto' ? dueDate : null,
+    account_id:         normalizedPaymentMethod === 'card' ? null : accountId,
+    card_id:            normalizedPaymentMethod === 'card' ? cardId : null,
+    due_date:           normalizedPaymentMethod === 'boleto' ? dueDate : null,
     notes:              document.getElementById('tx-notes').value || null,
     is_installment:     isInst,
     total_installments: isInst ? parcelas : null,
@@ -261,6 +289,40 @@ async function saveTx() {
   };
 
   try {
+    if (action === 'recurring') {
+      if (!catId || !accountId) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Para recorrencia, selecione categoria e conta.';
+        return;
+      }
+      const recurringPayload = {
+        category_id: catId,
+        account_id: accountId,
+        type: txType,
+        scope: document.getElementById('tx-scope').value,
+        description: desc,
+        amount,
+        frequency: 'monthly',
+        start_date: date,
+        end_date: null,
+      };
+      const recurringResp = await fetch('/api/recurring', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(recurringPayload),
+      });
+      if (!recurringResp.ok) {
+        const e = await recurringResp.json();
+        errEl.style.display = 'block';
+        errEl.textContent = e.detail || 'Erro ao criar recorrencia.';
+        return;
+      }
+      closeModal('tx-modal');
+      showToast('Recorrencia criada!', 'success');
+      setTimeout(() => location.reload(), 800);
+      return;
+    }
+
     const isEditing = Boolean(editingTxId);
     const url = isEditing ? `/api/transactions/${editingTxId}` : '/api/transactions';
     const method = isEditing ? 'PATCH' : 'POST';
@@ -278,6 +340,16 @@ async function saveTx() {
     const saved = await r.json();
     if (!isEditing) {
       await sendTxFeedback(saved);
+    }
+    if (action === 'repeat' && !isEditing) {
+      if (typeof clearTxFormForRepeat === 'function') {
+        clearTxFormForRepeat();
+      }
+      if (typeof loadTxModalData === 'function') {
+        await loadTxModalData();
+      }
+      showToast('Transacao salva. Pronto para repetir.', 'success');
+      return;
     }
     editingTxId = null;
     setModalLabels(false);

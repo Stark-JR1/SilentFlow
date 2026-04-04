@@ -8,7 +8,7 @@
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Saldo total consolidado</div>
     <div class="mono" style="font-size:28px;font-weight:700;color:{% if total >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ total | currency }}</div>
   </div>
-  <button class="btn btn-primary" onclick="openModal('acc-modal')">+ Nova conta</button>
+  <button class="btn btn-primary" onclick="openAccountCreate()">+ Nova conta</button>
 </div>
 
 <div class="grid-2">
@@ -29,17 +29,18 @@
   <div style="display:flex;gap:8px;margin-top:12px">
     <a href="/transactions?account_id={{ acc.id }}" class="btn btn-ghost" style="flex:1;font-size:11px;justify-content:center">Extrato</a>
     <button class="btn btn-ghost" type="button" style="flex:1;font-size:11px" onclick="openTransferForAccount('{{ acc.id }}')">Transferir</button>
+    <button class="btn btn-ghost" type="button" style="flex:1;font-size:11px" onclick="openAccountEdit('{{ acc.id }}')">Editar</button>
   </div>
 </div>
 {% else %}
-<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🏦</div><div class="empty-text">Nenhuma conta cadastrada.</div><button class="btn btn-primary" onclick="openModal('acc-modal')" style="margin-top:12px">+ Adicionar conta</button></div>
+<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🏦</div><div class="empty-text">Nenhuma conta cadastrada.</div><button class="btn btn-primary" onclick="openAccountCreate()" style="margin-top:12px">+ Adicionar conta</button></div>
 {% endfor %}
 </div>
 
 <!-- CREATE MODAL -->
 <div class="modal-overlay" id="acc-modal" onclick="if(event.target===this)closeModal('acc-modal')">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Nova Conta</div><button class="modal-close" onclick="closeModal('acc-modal')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="acc-modal-title">Nova Conta</div><button class="modal-close" onclick="closeModal('acc-modal')">✕</button></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="acc-name" placeholder="Ex: Nubank" /></div>
       <div class="form-group"><label class="form-label">Tipo</label>
@@ -50,7 +51,7 @@
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Banco</label><input class="form-input" id="acc-bank" placeholder="Ex: Itaú" /></div>
-      <div class="form-group"><label class="form-label">Saldo inicial</label><input class="form-input mono" id="acc-balance" placeholder="0,00" /></div>
+      <div class="form-group"><label class="form-label">Saldo atual</label><input class="form-input mono" id="acc-balance" placeholder="0,00" /></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:14px">
       <input type="checkbox" id="acc-shared" style="width:16px;height:16px;accent-color:var(--accent)">
@@ -58,6 +59,7 @@
     </div>
     <div id="acc-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px"></div>
     <div style="display:flex;gap:8px">
+      <button class="btn btn-danger" id="acc-delete-btn" style="display:none;flex:1;justify-content:center" onclick="deleteAccount()">Excluir</button>
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('acc-modal')">Cancelar</button>
       <button class="btn btn-primary" id="acc-save-btn" style="flex:2;justify-content:center" onclick="saveAccount()">Criar conta</button>
     </div>
@@ -66,12 +68,74 @@
 {% endblock %}
 {% block extra_scripts %}
 <script>
+let editingAccountId = null;
+const accountIndex = {
+  {% for acc in accounts %}
+  "{{ acc.id }}": {
+    id: "{{ acc.id }}",
+    name: {{ acc.name | tojson }},
+    type: "{{ acc.type }}",
+    bank_name: {{ acc.bank_name | tojson }},
+    current_balance: {{ acc.current_balance | default(0) }},
+    is_shared: {{ 'true' if acc.is_shared else 'false' }},
+  },
+  {% endfor %}
+};
+
 function openTransferForAccount(accountId) {
   const url = new URL('/transactions', window.location.origin);
   url.searchParams.set('account_id', accountId);
   url.searchParams.set('type', 'transfer');
   url.searchParams.set('open_transfer', '1');
   window.location.href = url.toString();
+}
+
+function openAccountCreate() {
+  editingAccountId = null;
+  document.getElementById('acc-modal-title').textContent = 'Nova Conta';
+  document.getElementById('acc-save-btn').textContent = 'Criar conta';
+  document.getElementById('acc-name').value = '';
+  document.getElementById('acc-type').selectedIndex = 0;
+  document.getElementById('acc-bank').value = '';
+  document.getElementById('acc-balance').value = '';
+  document.getElementById('acc-shared').checked = false;
+  document.getElementById('acc-error').style.display = 'none';
+  document.getElementById('acc-delete-btn').style.display = 'none';
+  openModal('acc-modal');
+}
+
+function openAccountEdit(accountId) {
+  const acc = accountIndex[accountId];
+  if (!acc) return;
+  editingAccountId = accountId;
+  document.getElementById('acc-modal-title').textContent = 'Editar Conta';
+  document.getElementById('acc-save-btn').textContent = 'Salvar alterações';
+  document.getElementById('acc-name').value = acc.name || '';
+  document.getElementById('acc-type').value = acc.type || 'checking';
+  document.getElementById('acc-bank').value = acc.bank_name || '';
+  document.getElementById('acc-balance').value = String(acc.current_balance ?? 0).replace('.', ',');
+  document.getElementById('acc-shared').checked = Boolean(acc.is_shared);
+  document.getElementById('acc-error').style.display = 'none';
+  document.getElementById('acc-delete-btn').style.display = 'inline-flex';
+  openModal('acc-modal');
+}
+
+async function deleteAccount() {
+  if (!editingAccountId) return;
+  if (!confirm('Excluir esta conta? Ela deixará de aparecer nas listagens.')) return;
+  const r = await fetch(`/api/accounts/${editingAccountId}`, { method: 'DELETE' });
+  if (r.ok || r.status === 204) {
+    closeModal('acc-modal');
+    showToast('Conta excluída!', 'success');
+    setTimeout(() => location.reload(), 500);
+    return;
+  }
+  let message = 'Erro ao excluir conta.';
+  try {
+    const payload = await r.json();
+    message = payload.detail || message;
+  } catch (_) {}
+  showToast(message, 'error');
 }
 
 function parseMoneyInput(value) {
@@ -111,7 +175,7 @@ async function saveAccount() {
     name,
     type: document.getElementById('acc-type').value,
     bank_name: document.getElementById('acc-bank').value.trim() || null,
-    initial_balance: initialBalance,
+    current_balance: initialBalance,
     is_shared: document.getElementById('acc-shared').checked,
   };
 
@@ -119,8 +183,9 @@ async function saveAccount() {
   saveBtn.textContent = 'Salvando...';
 
   try {
-    const r = await fetch('/api/accounts', {
-      method:'POST',
+    const isEditing = Boolean(editingAccountId);
+    const r = await fetch(isEditing ? `/api/accounts/${editingAccountId}` : '/api/accounts', {
+      method: isEditing ? 'PATCH' : 'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
@@ -133,7 +198,7 @@ async function saveAccount() {
 
     if (r.ok) {
       closeModal('acc-modal');
-      showToast('Conta criada!', 'success');
+      showToast(isEditing ? 'Conta atualizada!' : 'Conta criada!', 'success');
       setTimeout(() => location.reload(), 600);
       return;
     }
@@ -157,7 +222,7 @@ async function saveAccount() {
     console.error(error);
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Criar conta';
+    saveBtn.textContent = editingAccountId ? 'Salvar alterações' : 'Criar conta';
   }
 }
 </script>

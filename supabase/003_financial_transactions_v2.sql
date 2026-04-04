@@ -4,19 +4,37 @@ alter table if exists public.transactions
     add column if not exists due_date date null,
     add column if not exists paid_at timestamptz null,
     add column if not exists card_id uuid null,
+    add column if not exists credit_card_id uuid null,
     add column if not exists invoice_id uuid null,
     add column if not exists is_installment boolean not null default false,
     add column if not exists installment_number integer null,
     add column if not exists installment_total integer null,
+    add column if not exists total_installments integer null,
     add column if not exists installment_group_id uuid null;
 
-alter table if exists public.transactions
-    add constraint transactions_payment_method_check
-    check (payment_method in ('account', 'pix', 'card', 'boleto', 'cash'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'transactions_payment_method_check'
+  ) then
+    alter table public.transactions
+      add constraint transactions_payment_method_check
+      check (payment_method in ('account', 'pix', 'card', 'boleto', 'cash', 'other'));
+  end if;
+end $$;
 
-alter table if exists public.transactions
-    add constraint transactions_status_check
-    check (status in ('paid', 'pending', 'scheduled', 'cancelled'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'transactions_status_check'
+  ) then
+    alter table public.transactions
+      add constraint transactions_status_check
+      check (status in ('paid', 'pending', 'scheduled', 'cancelled'));
+  end if;
+end $$;
 
 create table if not exists public.cards (
     id uuid primary key default gen_random_uuid(),

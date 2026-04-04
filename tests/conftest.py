@@ -47,6 +47,19 @@ def _sample_state():
                 "deleted_at": None,
             }
         ],
+        "profiles": [
+            {
+                "id": "user-1",
+                "full_name": "Usuario Teste",
+                "email": "user@example.com",
+                "phone": None,
+                "display_name": "Usuario Teste",
+                "currency": "BRL",
+                "timezone": "America/Sao_Paulo",
+                "week_start": "monday",
+                "default_scope": "personal",
+            }
+        ],
         "transactions": [
             {
                 "id": "tx-1",
@@ -262,6 +275,7 @@ class FakeAuthedClient:
             "transaction_learning_rules": "learning_rules",
             "transaction_learning_feedback": "learning_feedback",
             "transaction_recurrence_patterns": "recurrence_patterns",
+            "profiles": "profiles",
         }
         return FakeQuery(self.state, table_map[name])
 
@@ -526,6 +540,44 @@ def app_client(monkeypatch):
     def get_accounts(_client, user_id):
         return deepcopy(active_accounts(user_id))
 
+    def get_user_profile(_client, user):
+        profile = next((row for row in state["profiles"] if row["id"] == user["id"]), None)
+        if not profile:
+            return {
+                "id": user["id"],
+                "email": user.get("email", ""),
+                "full_name": user.get("full_name", ""),
+                "display_name": user.get("full_name", ""),
+                "phone": "",
+                "currency": "BRL",
+                "timezone": "America/Sao_Paulo",
+                "week_start": "monday",
+                "default_scope": "personal",
+                "account_status": "Conta principal ativa",
+            }
+        merged = deepcopy(profile)
+        merged["account_status"] = "Conta principal ativa"
+        return merged
+
+    def update_user_profile(_client, user, payload):
+        profile = next((row for row in state["profiles"] if row["id"] == user["id"]), None)
+        if not profile:
+            profile = {"id": user["id"]}
+            state["profiles"].append(profile)
+        for key in (
+            "full_name",
+            "email",
+            "phone",
+            "display_name",
+            "currency",
+            "timezone",
+            "week_start",
+            "default_scope",
+        ):
+            if key in payload and payload[key] is not None:
+                profile[key] = payload[key]
+        return {**deepcopy(profile), "account_status": "Conta principal ativa"}
+
     def create_account(_client, user_id, payload):
         record = {
             "id": f"acc-{len(state['accounts']) + 1}",
@@ -538,6 +590,21 @@ def app_client(monkeypatch):
         }
         state["accounts"].append(record)
         return deepcopy(record)
+
+    def update_account(_client, account_id, user_id, payload):
+        for acc in state["accounts"]:
+            if acc["id"] == account_id and acc["user_id"] == user_id and not acc.get("deleted_at"):
+                acc.update(payload)
+                return deepcopy(acc)
+        return {}
+
+    def delete_account(_client, account_id, user_id):
+        for acc in state["accounts"]:
+            if acc["id"] == account_id and acc["user_id"] == user_id and not acc.get("deleted_at"):
+                acc["is_active"] = False
+                acc["deleted_at"] = "deleted"
+                return True
+        return False
 
     def get_transactions(
         _client,
@@ -643,6 +710,26 @@ def app_client(monkeypatch):
         }
         state["cards"].append(record)
         return deepcopy(record)
+
+    def update_credit_card(_client, card_id, user_id, payload):
+        for card in state["cards"]:
+            if card["id"] == card_id and card["user_id"] == user_id and not card.get("deleted_at"):
+                card.update(payload)
+                if "credit_limit" in payload or "limit_amount" in payload:
+                    limit_amount = float(payload.get("limit_amount", payload.get("credit_limit", 0)) or 0)
+                    card["credit_limit"] = limit_amount
+                    card["limit_amount"] = limit_amount
+                    card["available_limit"] = min(float(card.get("available_limit", limit_amount)), limit_amount)
+                return deepcopy(card)
+        return {}
+
+    def delete_credit_card(_client, card_id, user_id):
+        for card in state["cards"]:
+            if card["id"] == card_id and card["user_id"] == user_id and not card.get("deleted_at"):
+                card["is_active"] = False
+                card["deleted_at"] = "deleted"
+                return True
+        return False
 
     def create_installment_transactions(_client, user_id, payload, total_installments):
         payload = normalize_tx_payload(payload)
@@ -822,11 +909,16 @@ def app_client(monkeypatch):
 
     fake_supabase = FakeSupabase(users)
     monkeypatch.setattr(auth_router, "get_supabase", lambda: fake_supabase)
+    monkeypatch.setattr(api_router, "get_supabase", lambda: fake_supabase)
     monkeypatch.setattr(api_router, "get_authed_client", get_authed_client)
     monkeypatch.setattr(pages_router, "get_authed_client", get_authed_client)
 
     monkeypatch.setattr(db, "get_accounts", get_accounts)
+    monkeypatch.setattr(db, "get_user_profile", get_user_profile)
+    monkeypatch.setattr(db, "update_user_profile", update_user_profile)
     monkeypatch.setattr(db, "create_account", create_account)
+    monkeypatch.setattr(db, "update_account", update_account)
+    monkeypatch.setattr(db, "delete_account", delete_account)
     monkeypatch.setattr(db, "get_transactions", get_transactions)
     monkeypatch.setattr(db, "get_month_transactions", get_month_transactions)
     monkeypatch.setattr(db, "create_transaction", create_transaction)
@@ -835,6 +927,8 @@ def app_client(monkeypatch):
     monkeypatch.setattr(db, "delete_transaction", delete_transaction)
     monkeypatch.setattr(db, "get_credit_cards", get_credit_cards)
     monkeypatch.setattr(db, "create_credit_card", create_credit_card)
+    monkeypatch.setattr(db, "update_credit_card", update_credit_card)
+    monkeypatch.setattr(db, "delete_credit_card", delete_credit_card)
     monkeypatch.setattr(db, "pay_invoice", pay_invoice)
     monkeypatch.setattr(db, "settle_boleto", settle_boleto)
     monkeypatch.setattr(db, "get_categories", get_categories)

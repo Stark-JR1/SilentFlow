@@ -30,6 +30,10 @@ from app.routers import auth, pages, api
 def healthz():
     return {"status": "ok"}
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return RedirectResponse(url="/static/favicon.svg", status_code=307)
+
 # ---- MIDDLEWARE --------------------------------------------
 app.add_middleware(
     SessionMiddleware,

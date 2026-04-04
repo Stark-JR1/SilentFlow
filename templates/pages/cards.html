@@ -19,9 +19,10 @@
       <div style="width:{{ pct }}%;height:100%;border-radius:4px;background:rgba(255,255,255,.75)"></div>
     </div>
     {% if card.last_four %}<div class="cc-number">•••• •••• •••• {{ card.last_four }}</div>{% endif %}
+    <button class="btn btn-ghost" type="button" style="margin-top:10px;font-size:10px;padding:5px 8px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.25)" onclick="openEditCard('{{ card.id }}')">Editar</button>
   </div>
   {% endfor %}
-  <button onclick="openModal('card-modal')" style="width:220px;flex-shrink:0;border-radius:14px;border:1px dashed rgba(255,255,255,.12);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:rgba(255,255,255,.3);cursor:pointer;min-height:140px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.3)'">
+  <button onclick="openNewCardModal()" style="width:220px;flex-shrink:0;border-radius:14px;border:1px dashed rgba(255,255,255,.12);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:rgba(255,255,255,.3);cursor:pointer;min-height:140px;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.3)'">
     <span style="font-size:24px">+</span><span style="font-size:12px">Novo cartão</span>
   </button>
 </div>
@@ -86,7 +87,7 @@
 <!-- CREATE MODAL -->
 <div class="modal-overlay" id="card-modal" onclick="if(event.target===this)closeModal('card-modal')">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Novo Cartão</div><button class="modal-close" onclick="closeModal('card-modal')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="card-modal-title">Novo Cartão</div><button class="modal-close" onclick="closeModal('card-modal')">✕</button></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="c-name" placeholder="Ex: Nubank Gold"/></div>
       <div class="form-group"><label class="form-label">Banco</label><input class="form-input" id="c-bank" placeholder="Ex: Nubank"/></div>
@@ -118,8 +119,9 @@
       <input type="hidden" id="c-grad-end"   value="#2d1b6e">
     </div>
     <div style="display:flex;gap:8px">
+      <button class="btn btn-danger" id="card-delete-btn" style="display:none;flex:1;justify-content:center" onclick="deleteCard()">Excluir</button>
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('card-modal')">Cancelar</button>
-      <button class="btn btn-primary" style="flex:2;justify-content:center" onclick="saveCard()">Criar cartão</button>
+      <button class="btn btn-primary" id="card-save-btn" style="flex:2;justify-content:center" onclick="saveCard()">Criar cartão</button>
     </div>
   </div>
 </div>
@@ -127,27 +129,145 @@
 {% endblock %}
 {% block extra_scripts %}
 <script>
+let editingCardId = null;
+const cardIndex = {
+  {% for card in cards %}
+  "{{ card.id }}": {
+    id: "{{ card.id }}",
+    name: {{ card.name | tojson }},
+    bank_name: {{ card.bank_name | tojson }},
+    last_four: {{ card.last_four | tojson }},
+    network: "{{ card.network or card.brand or 'visa' }}",
+    credit_limit: {{ card.credit_limit | default(card.limit_amount) | default(0) }},
+    closing_day: {{ card.closing_day | default(1) }},
+    due_day: {{ card.due_day | default(1) }},
+    color_start: {{ (card.color_start or '#1a1040') | tojson }},
+    color_end: {{ (card.color_end or '#2d1b6e') | tojson }},
+  },
+  {% endfor %}
+};
+
 function selectGrad(btn, start, end) {
   document.querySelectorAll('#grad-picker button').forEach(b => b.style.borderColor = 'transparent');
   btn.style.borderColor = 'rgba(255,255,255,.5)';
   document.getElementById('c-grad-start').value = start;
   document.getElementById('c-grad-end').value   = end;
 }
+
+function parseMoneyInput(value) {
+  if (!value || !value.trim()) return 0;
+  const normalized = value
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function openNewCardModal() {
+  editingCardId = null;
+  document.getElementById('card-modal-title').textContent = 'Novo Cartão';
+  document.getElementById('card-save-btn').textContent = 'Criar cartão';
+  document.getElementById('c-name').value = '';
+  document.getElementById('c-bank').value = '';
+  document.getElementById('c-digits').value = '';
+  document.getElementById('c-network').value = 'visa';
+  document.getElementById('c-limit').value = '';
+  document.getElementById('c-closing').value = 28;
+  document.getElementById('c-due').value = 5;
+  document.getElementById('c-grad-start').value = '#1a1040';
+  document.getElementById('c-grad-end').value = '#2d1b6e';
+  const defaultGrad = document.querySelector("#grad-picker button[data-start='#1a1040'][data-end='#2d1b6e']");
+  if (defaultGrad) selectGrad(defaultGrad, '#1a1040', '#2d1b6e');
+  document.getElementById('card-delete-btn').style.display = 'none';
+  openModal('card-modal');
+}
+
+function openEditCard(cardId) {
+  const card = cardIndex[cardId];
+  if (!card) return;
+  editingCardId = cardId;
+  document.getElementById('card-modal-title').textContent = 'Editar Cartão';
+  document.getElementById('card-save-btn').textContent = 'Salvar alterações';
+  document.getElementById('c-name').value = card.name || '';
+  document.getElementById('c-bank').value = card.bank_name || '';
+  document.getElementById('c-digits').value = card.last_four || '';
+  document.getElementById('c-network').value = card.network || 'visa';
+  document.getElementById('c-limit').value = String(card.credit_limit ?? 0).replace('.', ',');
+  document.getElementById('c-closing').value = card.closing_day || 1;
+  document.getElementById('c-due').value = card.due_day || 1;
+  document.getElementById('c-grad-start').value = card.color_start || '#1a1040';
+  document.getElementById('c-grad-end').value = card.color_end || '#2d1b6e';
+  const selected = document.querySelector(`#grad-picker button[data-start='${card.color_start}'][data-end='${card.color_end}']`);
+  if (selected) {
+    selectGrad(selected, card.color_start, card.color_end);
+  } else {
+    document.querySelectorAll('#grad-picker button').forEach(b => b.style.borderColor = 'transparent');
+  }
+  document.getElementById('card-delete-btn').style.display = 'inline-flex';
+  openModal('card-modal');
+}
+
+async function deleteCard() {
+  if (!editingCardId) return;
+  if (!confirm('Excluir este cartão? Ele deixará de aparecer nas listagens.')) return;
+  const r = await fetch(`/api/cards/${editingCardId}`, { method: 'DELETE' });
+  if (r.ok || r.status === 204) {
+    closeModal('card-modal');
+    showToast('Cartão excluído!', 'success');
+    setTimeout(() => location.reload(), 500);
+    return;
+  }
+  let message = 'Erro ao excluir cartão.';
+  try {
+    const payload = await r.json();
+    message = payload.detail || message;
+  } catch (_) {}
+  showToast(message, 'error');
+}
+
 async function saveCard() {
+  const saveBtn = document.getElementById('card-save-btn');
+  const limitValue = parseMoneyInput(document.getElementById('c-limit').value);
+  if (Number.isNaN(limitValue)) {
+    showToast('Informe um limite válido.', 'error');
+    return;
+  }
   const payload = {
     name:         document.getElementById('c-name').value,
     bank_name:    document.getElementById('c-bank').value,
     last_four:    document.getElementById('c-digits').value || null,
     network:      document.getElementById('c-network').value,
-    credit_limit: parseFloat(document.getElementById('c-limit').value.replace(',','.')) || 0,
+    credit_limit: limitValue,
     closing_day:  parseInt(document.getElementById('c-closing').value),
     due_day:      parseInt(document.getElementById('c-due').value),
     color_start:  document.getElementById('c-grad-start').value,
     color_end:    document.getElementById('c-grad-end').value,
   };
-  const r = await fetch('/api/cards', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-  if (r.ok) { showToast('Cartão criado!','success'); setTimeout(()=>location.reload(),600); }
-  else { const e = await r.json(); showToast(e.detail||'Erro ao criar','error'); }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando...';
+  try {
+    const isEditing = Boolean(editingCardId);
+    const r = await fetch(isEditing ? `/api/cards/${editingCardId}` : '/api/cards', {
+      method: isEditing ? 'PATCH' : 'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if (r.ok) {
+      closeModal('card-modal');
+      showToast(isEditing ? 'Cartão atualizado!' : 'Cartão criado!', 'success');
+      setTimeout(()=>location.reload(),600);
+    } else {
+      const e = await r.json();
+      showToast(e.detail||'Erro ao salvar cartão','error');
+    }
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = editingCardId ? 'Salvar alterações' : 'Criar cartão';
+  }
 }
 </script>
 {% endblock %}
