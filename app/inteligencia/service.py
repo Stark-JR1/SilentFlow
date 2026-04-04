@@ -187,6 +187,35 @@ def _is_profile_stale(profile: dict | None) -> bool:
     return datetime.now(timezone.utc) - updated_at > PROFILE_STALE_AFTER
 
 
+def _attach_profile_display_fields(client, profile: dict | None) -> dict | None:
+    if not isinstance(profile, dict):
+        return profile
+
+    enriched = dict(profile)
+    category_id = enriched.get("top_category_id")
+    if not category_id:
+        enriched["top_category_name"] = None
+        return enriched
+
+    try:
+        category_resp = (
+            client.table("categories")
+            .select("id,name")
+            .eq("id", category_id)
+            .limit(1)
+            .execute()
+        )
+        row = (category_resp.data or [None])[0]
+        enriched["top_category_name"] = row.get("name") if row else None
+    except APIError as exc:
+        if _is_nonfatal_intelligence_error(exc):
+            enriched["top_category_name"] = None
+            return enriched
+        raise
+
+    return enriched
+
+
 def _hydrate_rule(rule: dict) -> dict:
     hydrated = dict(rule)
     source = hydrated.get("raw_description_sample") or hydrated.get("normalized_description") or ""
@@ -603,14 +632,14 @@ def get_user_profile(client, user_id: str) -> dict | None:
         .eq("user_id", user_id)
     )
     if profile and not _is_profile_stale(profile):
-        return profile
+        return _attach_profile_display_fields(client, profile)
 
     if profile:
         logging.warning("Intelligence profile rebuild: stale profile detected for user %s", user_id)
 
     try:
         rebuilt = build_and_store_user_profile(client, user_id)
-        return rebuilt or profile
+        return _attach_profile_display_fields(client, rebuilt or profile)
     except APIError as exc:
         if _is_nonfatal_intelligence_error(exc):
             logging.warning(f"Intelligence fallback: user profile not available - {exc}")
@@ -641,11 +670,12 @@ def build_and_store_user_profile(client, user_id: str) -> dict | None:
 
     try:
         resp = client.table("user_behavior_profile").upsert(record).execute()
-        return (resp.data or [None])[0]
+        stored = (resp.data or [None])[0]
+        return _attach_profile_display_fields(client, stored)
     except APIError as exc:
         if _is_nonfatal_intelligence_error(exc):
             logging.warning(f"Intelligence fallback: failed to store user profile - {exc}")
-            return profile_data
+            return _attach_profile_display_fields(client, profile_data)
         raise
 
 

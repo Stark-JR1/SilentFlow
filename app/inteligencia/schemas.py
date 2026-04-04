@@ -50,6 +50,7 @@ class UserBehaviorProfileOut(BaseModel):
     recurring_transactions_count: int = 0
     active_months_count: int = 0
     top_category_id: Optional[str] = None
+    top_category_name: Optional[str] = None
     top_category_share: float = 0
 
 

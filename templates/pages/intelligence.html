@@ -37,7 +37,7 @@
   {% if profile.top_category_id %}
   <div style="padding:12px;background:var(--bg2);border-radius:8px;margin-bottom:16px">
     <div style="font-size:14px;color:var(--text2);margin-bottom:4px">Categoria mais usada</div>
-    <div style="font-size:16px;font-weight:500">{{ profile.top_category_id }} ({{ '%.1f'|format(profile.top_category_share * 100) }}% dos gastos)</div>
+    <div style="font-size:16px;font-weight:500">{{ profile.top_category_name or 'Categoria não encontrada' }} ({{ '%.1f'|format(profile.top_category_share * 100) }}% dos gastos)</div>
   </div>
   {% endif %}
   
