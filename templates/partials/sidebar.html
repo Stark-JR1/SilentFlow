@@ -1,0 +1,52 @@
+<!-- SIDEBAR -->
+<nav class="sidebar" id="app-sidebar" aria-hidden="false">
+  <div class="logo">
+    <div class="logo-icon">&#36;</div>
+    <div>
+      <div class="logo-text">FinTrack</div>
+      <div class="logo-sub">SilentFlow OS</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Principal</div>
+    <a href="/dashboard" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-icon">DB</span> Dashboard</a>
+    <a href="/transactions" class="nav-item {% if active_page == 'transactions' %}active{% endif %}"><span class="nav-icon">TX</span> Transacoes</a>
+    <a href="/accounts" class="nav-item {% if active_page == 'accounts' %}active{% endif %}"><span class="nav-icon">CT</span> Contas</a>
+    <a href="/cards" class="nav-item {% if active_page == 'cards' %}active{% endif %}"><span class="nav-icon">CC</span> Cartoes</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Planejamento</div>
+    <a href="/goals" class="nav-item {% if active_page == 'goals' %}active{% endif %}"><span class="nav-icon">MT</span> Metas</a>
+    <a href="/recurring" class="nav-item {% if active_page == 'recurring' %}active{% endif %}"><span class="nav-icon">RC</span> Recorrentes</a>
+    <a href="/reports" class="nav-item {% if active_page == 'reports' %}active{% endif %}"><span class="nav-icon">RP</span> Relatorios</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Familia</div>
+    <a href="/family" class="nav-item {% if active_page == 'family' %}active{% endif %}"><span class="nav-icon">FM</span> Ambiente Familiar</a>
+    <a href="/alerts" class="nav-item {% if active_page == 'alerts' %}active{% endif %}"><span class="nav-icon">AL</span> Alertas</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Importacao</div>
+    <a href="/imports" class="nav-item {% if active_page == 'imports' %}active{% endif %}"><span class="nav-icon">IM</span> Importar Extratos</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Configuracoes</div>
+    <a href="/settings/intelligence" class="nav-item {% if active_page == 'intelligence' %}active{% endif %}"><span class="nav-icon">AI</span> Inteligencia</a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="avatar">{{ (user.full_name or 'U')[:2].upper() }}</div>
+      <div style="flex:1;min-width:0">
+        <div class="user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ user.full_name or 'Usuario' }}</div>
+        <div class="user-role">Pessoal + Familia</div>
+      </div>
+    </div>
+    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);color:#f4f1ec">Sair</a>
+  </div>
+</nav>

@@ -266,6 +266,31 @@
       height: 74px; background: var(--topbar); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
       display: flex; align-items: center; padding: 0 28px; gap: 16px; flex-shrink: 0;
     }
+    .mobile-menu-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 92px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border2);
+      background: rgba(255,255,255,.72);
+      color: var(--text);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .mobile-menu-toggle:hover {
+      background: var(--bg3);
+    }
+    .mobile-menu-toggle .menu-icon {
+      font-size: 13px;
+      letter-spacing: 0;
+    }
     .topbar-title { font-size: 20px; font-weight: 800; flex: 1; letter-spacing: -.02em; }
     .month-nav { display: flex; align-items: center; gap: 6px; }
     .month-btn {
@@ -278,6 +303,16 @@
       min-width: 132px; text-align: center; background: rgba(255,255,255,.68); cursor: default; color: var(--text2);
     }
     .content { flex: 1; overflow-y: auto; padding: 28px; }
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(18, 24, 22, 0.34);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .22s ease;
+      z-index: 80;
+    }
 
     /* CARDS */
     .card, .kpi-card, .goal-card, .account-card {
@@ -440,16 +475,23 @@
       .grid-4 { grid-template-columns: 1fr 1fr; }
       .grid-main, .grid-bottom, .grid-2, .grid-3, .form-row, .form-row-3 { grid-template-columns: 1fr; }
       .sidebar { width: 92px; }
-      .logo-text, .logo-sub, .sidebar-label, .nav-copy, .user-role, .user-name, .user-balance, .nav-badge, .group-chevron { display: none; }
-      .sidebar-group { border: none; background: transparent; }
-      .sidebar-group-panel { max-height: none !important; opacity: 1 !important; border-top: none; }
-      .sidebar-group-items { padding: 4px 0 0; }
-      .nav-item, .sidebar-group-trigger { justify-content: center; }
-      .nav-sub-item { margin-left: 0; }
-      .nav-sub-item::after { display: none; }
+      .logo-text, .logo-sub, .sidebar-label, .nav-item span:last-child, .user-role, .user-name { display: none; }
+      .nav-item { justify-content: center; }
       .topbar { padding: 0 18px; }
       .content { padding: 18px; }
       .tx-modal { width: 100%; border-radius: 14px; padding: 16px; }
+    }
+    @media (max-width: 640px) {
+      .topbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 74px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+      .topbar .btn-primary {
+        margin-left: auto;
+      }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -459,165 +501,42 @@
 <!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="logo">
-    <div class="logo-icon">◈</div>
+    <div class="logo-icon">💰</div>
     <div>
       <div class="logo-text">FinTrack</div>
       <div class="logo-sub">SilentFlow OS</div>
     </div>
   </div>
 
-  <div class="sidebar-body">
-    <div class="sidebar-label">Painel</div>
-    <a href="/dashboard" class="nav-item sidebar-top-link {% if active_page == 'dashboard' %}active{% endif %}">
-      <span class="nav-icon">⬡</span>
-      <span class="nav-copy">
-        <span class="nav-title">Dashboard</span>
-        <span class="nav-meta">Visão geral financeira</span>
-      </span>
-    </a>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Principal</div>
+    <a href="/dashboard"    class="nav-item {% if active_page == 'dashboard'    %}active{% endif %}"><span class="nav-icon">⬡</span> Dashboard</a>
+    <a href="/transactions" class="nav-item {% if active_page == 'transactions' %}active{% endif %}"><span class="nav-icon">⇄</span> Transações</a>
+    <a href="/accounts"     class="nav-item {% if active_page == 'accounts'     %}active{% endif %}"><span class="nav-icon">◈</span> Contas</a>
+    <a href="/cards"        class="nav-item {% if active_page == 'cards'        %}active{% endif %}"><span class="nav-icon">▣</span> Cartões</a>
+  </div>
 
-    <div class="sidebar-accordion" id="sidebar-accordion">
-      <section class="sidebar-group" data-group="movimentacao" data-open-if-active="transactions,imports">
-        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
-          <span class="nav-icon">⇄</span>
-          <span>Movimentação</span>
-          <span class="group-chevron">▾</span>
-        </button>
-        <div class="sidebar-group-panel">
-          <div class="sidebar-group-items">
-            <a href="/transactions" class="nav-item nav-sub-item {% if active_page == 'transactions' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Transações</span>
-                <span class="nav-meta">Lançamentos e histórico</span>
-              </span>
-              <span class="nav-badge" id="sidebar-tx-count">—</span>
-            </a>
-            <a href="/imports" class="nav-item nav-sub-item {% if active_page == 'imports' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Importar</span>
-                <span class="nav-meta">Extratos e arquivos</span>
-              </span>
-            </a>
-          </div>
-        </div>
-      </section>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Planejamento</div>
+    <a href="/goals"     class="nav-item {% if active_page == 'goals'     %}active{% endif %}"><span class="nav-icon">◎</span> Metas</a>
+    <a href="/recurring" class="nav-item {% if active_page == 'recurring' %}active{% endif %}"><span class="nav-icon">↻</span> Recorrentes</a>
+    <a href="/reports"   class="nav-item {% if active_page == 'reports'   %}active{% endif %}"><span class="nav-icon">⊞</span> Relatórios</a>
+  </div>
 
-      <section class="sidebar-group" data-group="estrutura" data-open-if-active="accounts,cards">
-        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
-          <span class="nav-icon">◈</span>
-          <span>Estrutura</span>
-          <span class="group-chevron">▾</span>
-        </button>
-        <div class="sidebar-group-panel">
-          <div class="sidebar-group-items">
-            <a href="/accounts" class="nav-item nav-sub-item {% if active_page == 'accounts' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Contas</span>
-                <span class="nav-meta">Saldos e instituições</span>
-              </span>
-              <span class="nav-badge" id="sidebar-accounts-count">—</span>
-            </a>
-            <a href="/cards" class="nav-item nav-sub-item {% if active_page == 'cards' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Cartões</span>
-                <span class="nav-meta">Limites e faturas</span>
-              </span>
-            </a>
-          </div>
-        </div>
-      </section>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Família</div>
+    <a href="/family"  class="nav-item {% if active_page == 'family'  %}active{% endif %}"><span class="nav-icon">◑</span> Ambiente Familiar</a>
+    <a href="/alerts"  class="nav-item {% if active_page == 'alerts'  %}active{% endif %}"><span class="nav-icon">◬</span> Alertas</a>
+  </div>
 
-      <section class="sidebar-group" data-group="planejamento" data-open-if-active="goals,recurring">
-        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
-          <span class="nav-icon">◎</span>
-          <span>Planejamento</span>
-          <span class="group-chevron">▾</span>
-        </button>
-        <div class="sidebar-group-panel">
-          <div class="sidebar-group-items">
-            <a href="/goals" class="nav-item nav-sub-item {% if active_page == 'goals' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Metas</span>
-                <span class="nav-meta">Objetivos financeiros</span>
-              </span>
-            </a>
-            <a href="/recurring" class="nav-item nav-sub-item {% if active_page == 'recurring' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Recorrentes</span>
-                <span class="nav-meta">Automatizações mensais</span>
-              </span>
-            </a>
-          </div>
-        </div>
-      </section>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Importação</div>
+    <a href="/imports" class="nav-item {% if active_page == 'imports' %}active{% endif %}"><span class="nav-icon">⇪</span> Importar Extratos</a>
+  </div>
 
-      <section class="sidebar-group" data-group="inteligencia" data-open-if-active="intelligence,alerts,reports">
-        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
-          <span class="nav-icon">◍</span>
-          <span>Inteligência</span>
-          <span class="group-chevron">▾</span>
-        </button>
-        <div class="sidebar-group-panel">
-          <div class="sidebar-group-items">
-            <a href="/settings/intelligence" class="nav-item nav-sub-item {% if active_page == 'intelligence' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Insights</span>
-                <span class="nav-meta">Leitura inteligente</span>
-              </span>
-              <span class="nav-badge" id="sidebar-insights-critical">—</span>
-            </a>
-            <a href="/alerts" class="nav-item nav-sub-item {% if active_page == 'alerts' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Alertas</span>
-                <span class="nav-meta">Sinais importantes</span>
-              </span>
-              <span class="nav-badge alert" id="sidebar-alerts-unread">—</span>
-            </a>
-            <a href="/reports" class="nav-item nav-sub-item {% if active_page == 'reports' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Relatórios</span>
-                <span class="nav-meta">Comparativos mensais</span>
-              </span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section class="sidebar-group" data-group="configuracoes" data-open-if-active="profile,settings,family">
-        <button type="button" class="sidebar-group-trigger" aria-expanded="false">
-          <span class="nav-icon">◉</span>
-          <span>Configurações</span>
-          <span class="group-chevron">▾</span>
-        </button>
-        <div class="sidebar-group-panel">
-          <div class="sidebar-group-items">
-            <a href="/profile" class="nav-item nav-sub-item {% if active_page == 'profile' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Perfil</span>
-                <span class="nav-meta">Conta e preferências</span>
-              </span>
-            </a>
-            <a href="/family" class="nav-item nav-sub-item {% if active_page == 'family' %}active{% endif %}">
-              <span class="nav-icon">•</span>
-              <span class="nav-copy">
-                <span class="nav-title">Família</span>
-                <span class="nav-meta">Ambiente compartilhado</span>
-              </span>
-            </a>
-          </div>
-        </div>
-      </section>
-    </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Configurações</div>
+    <a href="/settings/intelligence" class="nav-item {% if active_page == 'intelligence' %}active{% endif %}"><span class="nav-icon">🧠</span> Inteligência</a>
   </div>
 
   <div class="sidebar-footer">
@@ -625,11 +544,10 @@
       <div class="avatar">{{ (user.full_name or 'U')[:2].upper() }}</div>
       <div style="flex:1;min-width:0">
         <div class="user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ user.full_name or 'Usuário' }}</div>
-        <div class="user-role">Conta principal ativa</div>
-        <div class="user-balance" id="sidebar-total-balance">Saldo total: —</div>
+        <div class="user-role">Pessoal + Família</div>
       </div>
     </div>
-    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#f4f1ec">Sair</a>
+    <a href="/auth/logout" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);color:#f4f1ec">Sair</a>
   </div>
 </nav>
 
@@ -637,6 +555,10 @@
 <div class="main">
   {% block topbar %}
   <header class="topbar">
+    <button class="mobile-menu-toggle" type="button" onclick="toggleSidebarMenu()" aria-controls="app-sidebar" aria-expanded="false">
+      <span class="menu-icon">|||</span>
+      <span>Menu</span>
+    </button>
     <div class="topbar-title">{% block page_title %}FinTrack{% endblock %}</div>
     {% block topbar_extra %}{% endblock %}
     <button class="btn btn-primary" onclick="openModal('tx-modal')" style="font-size:12px;padding:7px 12px">
@@ -825,6 +747,59 @@
 // ---- MODAL ------------------------------------------------
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ---- MOBILE SIDEBAR --------------------------------------
+function setSidebarMenuState(isOpen) {
+  const sidebar = document.getElementById('app-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const toggle = document.querySelector('.mobile-menu-toggle');
+  if (!sidebar || !backdrop || !toggle) return;
+
+  sidebar.classList.toggle('open', isOpen);
+  backdrop.classList.toggle('open', isOpen);
+  document.body.classList.toggle('mobile-sidebar-open', isOpen);
+  toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  sidebar.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+}
+
+function toggleSidebarMenu() {
+  const sidebar = document.getElementById('app-sidebar');
+  if (!sidebar) return;
+  setSidebarMenuState(!sidebar.classList.contains('open'));
+}
+
+function closeSidebarMenu() {
+  setSidebarMenuState(false);
+}
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 900) {
+    setSidebarMenuState(false);
+  }
+});
+
+document.addEventListener('click', (event) => {
+  if (window.innerWidth > 900) return;
+  const sidebar = document.getElementById('app-sidebar');
+  const toggle = document.querySelector('.mobile-menu-toggle');
+  if (!sidebar || !toggle) return;
+  if (sidebar.contains(event.target) || toggle.contains(event.target)) return;
+  closeSidebarMenu();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sidebarLinks = document.querySelectorAll('#app-sidebar .nav-item, #app-sidebar .btn');
+  sidebarLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 900) {
+        closeSidebarMenu();
+      }
+    });
+  });
+  if (window.innerWidth <= 900) {
+    setSidebarMenuState(false);
+  }
+});
 
 // ---- TRANSACTION MODAL ------------------------------------
 let txType = 'expense';
